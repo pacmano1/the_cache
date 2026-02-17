@@ -81,7 +81,9 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             }
 
             var created = repo.create(definition);
-            cacheManager.registerCache(created);
+            if (created.isEnabled()) {
+                cacheManager.registerCache(created);
+            }
 
             dispatchEvent("Created", created.getName());
             return created;
@@ -110,9 +112,11 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             definition.setId(id);
             var updated = repo.update(definition);
 
-            // Re-register the cache with updated settings
+            // Re-register the cache with updated settings (or unregister if disabled)
             cacheManager.unregisterCache(id);
-            cacheManager.registerCache(updated);
+            if (updated.isEnabled()) {
+                cacheManager.registerCache(updated);
+            }
 
             dispatchEvent("Updated", updated.getName());
             return updated;

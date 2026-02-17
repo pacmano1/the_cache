@@ -7,7 +7,6 @@ import java.util.Properties;
 
 import com.mirth.connect.model.ExtensionPermission;
 import com.mirth.connect.plugins.ServicePlugin;
-import com.mirth.connect.server.util.GlobalVariableStore;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,13 +35,11 @@ public class CacheServerPlugin implements ServicePlugin {
         SerializationController.registerSerializableClasses();
         CacheDefinitionRepository.init();
         loadCacheDefinitions();
-        GlobalVariableStore.getInstance().put("cache", new CacheLookup());
     }
 
     @Override
     public void stop() {
         log.info("Stopping OIE Cache Manager plugin");
-        GlobalVariableStore.getInstance().remove("cache");
         CacheManager.shutdown();
         CacheDefinitionRepository.close();
     }
@@ -68,6 +65,10 @@ public class CacheServerPlugin implements ServicePlugin {
             var manager = CacheManager.getInstance();
             var definitions = repo.getAll();
             for (var def : definitions) {
+                if (!def.isEnabled()) {
+                    log.info("Skipping disabled cache '{}'", def.getName());
+                    continue;
+                }
                 try {
                     manager.registerCache(def);
                 } catch (Exception e) {

@@ -26,6 +26,8 @@ import java.util.regex.Pattern;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
@@ -39,8 +41,6 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.RowFilter;
 import javax.swing.SwingWorker;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableRowSorter;
 
@@ -64,6 +64,9 @@ public class CacheInspectorDialog extends JDialog {
     private JPanel statsPanel;
     private JPanel centerPanel;
     private JTextField searchField;
+    private JComboBox<String> searchScopeCombo;
+    private JCheckBox regexCheckBox;
+    private JButton applyButton;
     private TableRowSorter<EntryTableModel> rowSorter;
 
     public CacheInspectorDialog(JFrame parent, String cacheName,
@@ -111,13 +114,17 @@ public class CacheInspectorDialog extends JDialog {
                 try {
                     var snapshot = get();
                     var searchText = searchField.getText();
+                    var searchScope = searchScopeCombo.getSelectedIndex();
+                    var regexEnabled = regexCheckBox.isSelected();
 
                     remove(statsPanel);
                     remove(centerPanel);
 
                     statsPanel = buildStatsPanel(snapshot.getStatistics());
                     centerPanel = buildCenterPanel(snapshot.getEntries());
+                    searchScopeCombo.setSelectedIndex(searchScope);
                     searchField.setText(searchText);
+                    regexCheckBox.setSelected(regexEnabled);
 
                     add(statsPanel, BorderLayout.NORTH);
                     add(centerPanel, BorderLayout.CENTER);
@@ -176,15 +183,22 @@ public class CacheInspectorDialog extends JDialog {
         var panel = new JPanel(new BorderLayout(0, 4));
 
         var searchPanel = new JPanel(new BorderLayout(4, 0));
-        searchPanel.add(new JLabel("Search keys:"), BorderLayout.WEST);
+        searchPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 8, 0, 8));
+        searchScopeCombo = new JComboBox<>(new String[]{"Key", "Value", "Both"});
+        searchPanel.add(searchScopeCombo, BorderLayout.WEST);
         searchField = new JTextField();
-        searchField.setToolTipText("Filter entries by key (case-insensitive)");
-        searchField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { applyFilter(); }
-            @Override public void removeUpdate(DocumentEvent e) { applyFilter(); }
-            @Override public void changedUpdate(DocumentEvent e) { applyFilter(); }
-        });
+        searchField.setToolTipText("Filter entries (case-insensitive). Press Enter or Apply to search.");
+        searchField.addActionListener(e -> applyFilter());
         searchPanel.add(searchField, BorderLayout.CENTER);
+
+        var rightPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        regexCheckBox = new JCheckBox("Regex");
+        regexCheckBox.setToolTipText("Treat search text as a regular expression");
+        rightPanel.add(regexCheckBox);
+        applyButton = new JButton("Apply");
+        applyButton.addActionListener(e -> applyFilter());
+        rightPanel.add(applyButton);
+        searchPanel.add(rightPanel, BorderLayout.EAST);
 
         panel.add(searchPanel, BorderLayout.NORTH);
         panel.add(new JScrollPane(buildEntriesTable(entries)), BorderLayout.CENTER);
@@ -196,8 +210,28 @@ public class CacheInspectorDialog extends JDialog {
         var text = searchField.getText().trim();
         if (text.isEmpty()) {
             rowSorter.setRowFilter(null);
-        } else {
-            rowSorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(text), 0));
+            return;
+        }
+        var regex = regexCheckBox.isSelected() ? text : Pattern.quote(text);
+        try {
+            var compiled = Pattern.compile("(?i)" + regex);
+            var scope = (String) searchScopeCombo.getSelectedItem();
+            rowSorter.setRowFilter(new RowFilter<EntryTableModel, Integer>() {
+                @Override
+                public boolean include(Entry<? extends EntryTableModel, ? extends Integer> entry) {
+                    var cacheEntry = entry.getModel().getEntry(entry.getIdentifier());
+                    var key = cacheEntry.getKey();
+                    var value = cacheEntry.getValue();
+                    return switch (scope) {
+                        case "Value" -> value != null && compiled.matcher(value).find();
+                        case "Both" -> compiled.matcher(key).find()
+                                || (value != null && compiled.matcher(value).find());
+                        default -> compiled.matcher(key).find();
+                    };
+                }
+            });
+        } catch (java.util.regex.PatternSyntaxException ignored) {
+            // Invalid regex — don't update the filter until the pattern is valid
         }
     }
 
@@ -270,6 +304,21 @@ public class CacheInspectorDialog extends JDialog {
             }
         });
 
+        // Double-click opens entry detail dialog
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int row = table.rowAtPoint(e.getPoint());
+                    if (row >= 0) {
+                        int modelRow = table.convertRowIndexToModel(row);
+                        var entry = ((EntryTableModel) table.getModel()).getEntry(modelRow);
+                        new EntryDetailDialog(CacheInspectorDialog.this, entry).setVisible(true);
+                    }
+                }
+            }
+        });
+
         // Tooltip for full value on the Value column
         table.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
@@ -292,7 +341,7 @@ public class CacheInspectorDialog extends JDialog {
     private JPanel buildBottomPanel(String cacheName) {
         var panel = new JPanel(new BorderLayout());
 
-        var usageHint = new JTextField("$g('cache').lookup('" + cacheName + "', key)");
+        var usageHint = new JTextField("$g('" + cacheName + "').lookup(key)");
         usageHint.setEditable(false);
         usageHint.setBorder(null);
         usageHint.setBackground(panel.getBackground());

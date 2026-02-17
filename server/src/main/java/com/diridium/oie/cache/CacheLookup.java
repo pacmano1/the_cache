@@ -4,20 +4,25 @@
 package com.diridium.oie.cache;
 
 /**
- * Facade registered in globalMap so channel code can look up cached values.
+ * Per-cache facade registered in globalMap so channel code can look up cached values.
  * <p>
- * Usage from channel JavaScript: {@code $g('cache').lookup('facility-config', key)}
+ * Usage from channel JavaScript: {@code $g('myCacheName').lookup(key)}
  */
 public class CacheLookup {
 
+    private final String cacheName;
+
+    public CacheLookup(String cacheName) {
+        this.cacheName = cacheName;
+    }
+
     /**
-     * Look up a cached value by cache name and key.
+     * Look up a cached value by key.
      *
-     * @param cacheName the name of the cache definition
-     * @param key       the lookup key
+     * @param key the lookup key
      * @return the cached value, or null if not found
      */
-    public String lookup(String cacheName, String key) throws Exception {
+    public String lookup(String key) throws Exception {
         return CacheManager.getInstance().getByName(cacheName, key);
     }
 }

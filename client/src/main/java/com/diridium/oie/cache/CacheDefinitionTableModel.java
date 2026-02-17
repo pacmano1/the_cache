@@ -16,7 +16,7 @@ import javax.swing.table.AbstractTableModel;
 public class CacheDefinitionTableModel extends AbstractTableModel {
 
     private static final String[] COLUMN_NAMES = {"Name", "Enabled", "Max Size", "Eviction (min)", "Memory", "Lookups"};
-    private static final Class<?>[] COLUMN_CLASSES = {String.class, Boolean.class, Long.class, Long.class, String.class, Long.class};
+    private static final Class<?>[] COLUMN_CLASSES = {String.class, String.class, Long.class, Long.class, String.class, Long.class};
 
     private final List<CacheDefinition> definitions = new ArrayList<>();
     private Map<String, Long> lookupCounts = new HashMap<>();
@@ -77,7 +77,7 @@ public class CacheDefinitionTableModel extends AbstractTableModel {
         var def = definitions.get(rowIndex);
         return switch (columnIndex) {
             case 0 -> def.getName();
-            case 1 -> def.isEnabled();
+            case 1 -> def.isEnabled() ? "Yes" : "No";
             case 2 -> def.getMaxSize();
             case 3 -> def.getEvictionDurationMinutes();
             case 4 -> formatBytes(memoryEstimates.getOrDefault(def.getId(), 0L));

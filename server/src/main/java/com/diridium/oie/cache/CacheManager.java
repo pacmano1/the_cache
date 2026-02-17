@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
+import com.mirth.connect.server.util.GlobalVariableStore;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,6 +95,7 @@ public class CacheManager {
         hitCounts.put(definition.getId(), new ConcurrentHashMap<>());
         nameToId.put(definition.getName(), definition.getId());
         connectionLocks.putIfAbsent(definition.getId(), new ReentrantLock());
+        GlobalVariableStore.getInstance().put(definition.getName(), new CacheLookup(definition.getName()));
         log.info("Registered cache '{}'", definition.getName());
     }
 
@@ -104,6 +106,7 @@ public class CacheManager {
         var def = definitions.remove(definitionId);
         if (def != null) {
             nameToId.remove(def.getName());
+            GlobalVariableStore.getInstance().remove(def.getName());
         }
         var cache = caches.remove(definitionId);
         if (cache != null) {
@@ -341,6 +344,8 @@ public class CacheManager {
         definitions.clear();
         loadTimestamps.clear();
         hitCounts.clear();
+        var globalStore = GlobalVariableStore.getInstance();
+        nameToId.keySet().forEach(globalStore::remove);
         nameToId.clear();
     }
 
