@@ -140,14 +140,17 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         new SwingWorker<Void, Void>() {
             private List<CacheDefinition> defs;
             private Map<String, Long> counts;
+            private Map<String, Long> memory;
 
             @Override
             protected Void doInBackground() throws Exception {
                 defs = getServlet().getCacheDefinitions();
                 counts = new HashMap<>();
+                memory = new HashMap<>();
                 try {
                     for (var stats : getServlet().getAllCacheStatistics()) {
                         counts.put(stats.getCacheDefinitionId(), stats.getRequestCount());
+                        memory.put(stats.getCacheDefinitionId(), stats.getEstimatedMemoryBytes());
                     }
                 } catch (Exception e) {
                     log.debug("Could not fetch cache statistics", e);
@@ -159,10 +162,10 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
             protected void done() {
                 try {
                     get();
-                    tableModel.setData(defs, counts);
+                    tableModel.setData(defs, counts, memory);
                 } catch (Exception e) {
                     log.error("Failed to load cache definitions", e);
-                    tableModel.setData(Collections.emptyList(), Collections.emptyMap());
+                    tableModel.setData(Collections.emptyList(), Collections.emptyMap(), Collections.emptyMap());
                 }
                 updateButtonStates();
             }

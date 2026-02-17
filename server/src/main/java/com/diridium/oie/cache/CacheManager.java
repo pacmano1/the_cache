@@ -182,6 +182,17 @@ public class CacheManager {
         result.setRequestCount(stats.requestCount());
         result.setTotalLoadTimeNanos(stats.totalLoadTime());
         result.setAverageLoadPenaltyNanos(stats.averageLoadPenalty());
+
+        // Estimate memory: Java String uses ~2 bytes per char + object overhead
+        long memoryEstimate = 0;
+        for (var entry : cache.asMap().entrySet()) {
+            var k = entry.getKey();
+            var v = entry.getValue();
+            memoryEstimate += (k != null ? k.length() * 2L : 0)
+                    + (v != null ? v.length() * 2L : 0);
+        }
+        result.setEstimatedMemoryBytes(memoryEstimate);
+
         return result;
     }
 

@@ -15,11 +15,12 @@ import javax.swing.table.AbstractTableModel;
  */
 public class CacheDefinitionTableModel extends AbstractTableModel {
 
-    private static final String[] COLUMN_NAMES = {"Name", "Enabled", "Max Size", "Eviction (min)", "Driver", "Lookups"};
+    private static final String[] COLUMN_NAMES = {"Name", "Enabled", "Max Size", "Eviction (min)", "Memory", "Lookups"};
     private static final Class<?>[] COLUMN_CLASSES = {String.class, Boolean.class, Long.class, Long.class, String.class, Long.class};
 
     private final List<CacheDefinition> definitions = new ArrayList<>();
     private Map<String, Long> lookupCounts = new HashMap<>();
+    private Map<String, Long> memoryEstimates = new HashMap<>();
 
     public void setDefinitions(List<CacheDefinition> defs) {
         definitions.clear();
@@ -34,12 +35,13 @@ public class CacheDefinitionTableModel extends AbstractTableModel {
         fireTableDataChanged();
     }
 
-    public void setData(List<CacheDefinition> defs, Map<String, Long> counts) {
+    public void setData(List<CacheDefinition> defs, Map<String, Long> counts, Map<String, Long> memory) {
         definitions.clear();
         if (defs != null) {
             definitions.addAll(defs);
         }
         this.lookupCounts = counts != null ? counts : new HashMap<>();
+        this.memoryEstimates = memory != null ? memory : new HashMap<>();
         fireTableDataChanged();
     }
 
@@ -78,7 +80,7 @@ public class CacheDefinitionTableModel extends AbstractTableModel {
             case 1 -> def.isEnabled();
             case 2 -> def.getMaxSize();
             case 3 -> def.getEvictionDurationMinutes();
-            case 4 -> def.getDriver();
+            case 4 -> formatBytes(memoryEstimates.getOrDefault(def.getId(), 0L));
             case 5 -> lookupCounts.getOrDefault(def.getId(), 0L);
             default -> null;
         };
@@ -87,5 +89,12 @@ public class CacheDefinitionTableModel extends AbstractTableModel {
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
         return false;
+    }
+
+    private static String formatBytes(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        if (bytes < 1024 * 1024 * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024));
+        return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
     }
 }

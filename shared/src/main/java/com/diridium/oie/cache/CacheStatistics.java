@@ -13,7 +13,7 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 @XStreamAlias("cacheStatistics")
 public class CacheStatistics implements Serializable {
 
-    private static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 3L;
 
     private String cacheDefinitionId;
     private String name;
@@ -27,6 +27,7 @@ public class CacheStatistics implements Serializable {
     private long requestCount;
     private long totalLoadTimeNanos;
     private double averageLoadPenaltyNanos;
+    private long estimatedMemoryBytes;
 
     public CacheStatistics() {
     }
@@ -125,5 +126,13 @@ public class CacheStatistics implements Serializable {
 
     public void setAverageLoadPenaltyNanos(double averageLoadPenaltyNanos) {
         this.averageLoadPenaltyNanos = averageLoadPenaltyNanos;
+    }
+
+    public long getEstimatedMemoryBytes() {
+        return estimatedMemoryBytes;
+    }
+
+    public void setEstimatedMemoryBytes(long estimatedMemoryBytes) {
+        this.estimatedMemoryBytes = estimatedMemoryBytes;
     }
 }

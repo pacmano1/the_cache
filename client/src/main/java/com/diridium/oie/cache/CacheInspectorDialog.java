@@ -21,6 +21,7 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
@@ -119,24 +120,32 @@ public class CacheInspectorDialog extends JDialog {
         var avgLoadMs = stats.getAverageLoadPenaltyNanos() / 1_000_000.0;
         var totalLoadMs = stats.getTotalLoadTimeNanos() / 1_000_000.0;
 
-        var panel = new JPanel(new MigLayout("insets 8", "[][80]20[][80]20[][80]", "[]8[]"));
+        var panel = new JPanel(new MigLayout("insets 8", "[][80]20[][80]20[][80][]", "[]8[]"));
 
-        panel.add(tipLabel("Entries:", "Number of key-value pairs currently in the cache"));
-        panel.add(tipLabel(nf.format(stats.getSize()), null));
-        panel.add(tipLabel("Hit Rate:", "Percentage of lookups served from cache without a database call"));
-        panel.add(tipLabel(pf.format(stats.getHitRate()), null));
-        panel.add(tipLabel("Avg Load:", "Average time per database round-trip on a cache miss"));
-        panel.add(tipLabel(String.format("%.1f ms", avgLoadMs), null), "wrap");
+        panel.add(new JLabel("Entries:"));
+        panel.add(new JLabel(nf.format(stats.getSize())));
+        panel.add(new JLabel("Hit Rate:"));
+        panel.add(new JLabel(pf.format(stats.getHitRate())));
+        panel.add(new JLabel("Avg Load:"));
+        panel.add(new JLabel(String.format("%.1f ms", avgLoadMs)));
+        var helpButton = new JButton("?");
+        helpButton.setForeground(new java.awt.Color(0, 102, 204));
+        helpButton.setFont(helpButton.getFont().deriveFont(java.awt.Font.BOLD));
+        helpButton.setBorderPainted(false);
+        helpButton.setContentAreaFilled(false);
+        helpButton.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        helpButton.addActionListener(e -> showStatsHelp());
+        panel.add(helpButton, "spany 3, top, wrap");
 
-        panel.add(tipLabel("Hits:", "Lookups served from cache (no database call)"));
-        panel.add(tipLabel(nf.format(stats.getHitCount()), null));
-        panel.add(tipLabel("Misses:", "Lookups that required a database call to load the value"));
-        panel.add(tipLabel(nf.format(stats.getMissCount()), null));
-        panel.add(tipLabel("Evictions:", "Entries removed due to max size or expiration"));
-        panel.add(tipLabel(nf.format(stats.getEvictionCount()), null), "wrap");
+        panel.add(new JLabel("Hits:"));
+        panel.add(new JLabel(nf.format(stats.getHitCount())));
+        panel.add(new JLabel("Misses:"));
+        panel.add(new JLabel(nf.format(stats.getMissCount())));
+        panel.add(new JLabel("Evictions:"));
+        panel.add(new JLabel(nf.format(stats.getEvictionCount())), "wrap");
 
-        panel.add(tipLabel("Total DB Time:", "Cumulative time spent waiting on database loads (cache misses only)"));
-        panel.add(tipLabel(formatDuration(totalLoadMs), null), "span 5");
+        panel.add(new JLabel("Total DB Time:"));
+        panel.add(new JLabel(formatDuration(totalLoadMs)), "span 5");
 
         return panel;
     }
@@ -189,18 +198,18 @@ public class CacheInspectorDialog extends JDialog {
         return panel;
     }
 
-    private static JLabel tipLabel(String text, String tooltip) {
-        if (tooltip != null) {
-            var label = new JLabel("<html>" + escapeHtml(text)
-                    + " <span style='color:gray'>?</span></html>");
-            label.setToolTipText(tooltip);
-            return label;
-        }
-        return new JLabel(text);
-    }
-
-    private static String escapeHtml(String text) {
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    private void showStatsHelp() {
+        var help = """
+                <html><body style='width:350px; font-family:sans-serif'>
+                <b>Entries</b> — Number of key-value pairs currently in the cache.<br><br>
+                <b>Hit Rate</b> — Percentage of lookups served from cache without a database call.<br><br>
+                <b>Avg Load</b> — Average time per database round-trip on a cache miss.<br><br>
+                <b>Hits</b> — Lookups served from cache (no database call).<br><br>
+                <b>Misses</b> — Lookups that required a database call to load the value.<br><br>
+                <b>Evictions</b> — Entries removed due to max size or expiration.<br><br>
+                <b>Total DB Time</b> — Cumulative time spent waiting on database loads (cache misses only).
+                </body></html>""";
+        JOptionPane.showMessageDialog(this, help, "Cache Statistics Help", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private static String truncateValue(String value) {
