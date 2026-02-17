@@ -168,7 +168,10 @@ public class CacheManager {
         for (var key : cache.asMap().keySet()) {
             cache.refresh(key);
         }
-        log.info("Refreshed cache '{}'", definitions.get(definitionId).getName());
+        var def = definitions.get(definitionId);
+        if (def != null) {
+            log.info("Refreshed cache '{}'", def.getName());
+        }
     }
 
     /**

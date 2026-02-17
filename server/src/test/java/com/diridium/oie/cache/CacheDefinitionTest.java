@@ -53,4 +53,36 @@ class CacheDefinitionTest {
         assertEquals(5000, def.getMaxSize());
         assertEquals(120, def.getEvictionDurationMinutes());
     }
+
+    @Test
+    void copyWithoutId_copiesAllFieldsExceptId() {
+        var original = new CacheDefinition();
+        original.setId("original-id");
+        original.setName("facility-config");
+        original.setEnabled(false);
+        original.setDriver("org.postgresql.Driver");
+        original.setUrl("jdbc:postgresql://db.example.com/crosswalk");
+        original.setUsername("reader");
+        original.setPassword("secret");
+        original.setQuery("SELECT config FROM facilities WHERE site_code = ?");
+        original.setKeyColumn("site_code");
+        original.setValueColumn("config");
+        original.setMaxSize(5000);
+        original.setEvictionDurationMinutes(120);
+
+        var copy = original.copyWithoutId();
+
+        assertNull(copy.getId());
+        assertEquals("facility-config", copy.getName());
+        assertFalse(copy.isEnabled());
+        assertEquals("org.postgresql.Driver", copy.getDriver());
+        assertEquals("jdbc:postgresql://db.example.com/crosswalk", copy.getUrl());
+        assertEquals("reader", copy.getUsername());
+        assertEquals("secret", copy.getPassword());
+        assertEquals("SELECT config FROM facilities WHERE site_code = ?", copy.getQuery());
+        assertEquals("site_code", copy.getKeyColumn());
+        assertEquals("config", copy.getValueColumn());
+        assertEquals(5000, copy.getMaxSize());
+        assertEquals(120, copy.getEvictionDurationMinutes());
+    }
 }

@@ -3,6 +3,7 @@
 
 package com.diridium.oie.cache;
 
+import java.util.Arrays;
 import java.util.List;
 
 import com.mirth.connect.model.converters.ObjectXMLSerializer;
@@ -13,21 +14,19 @@ import com.mirth.connect.model.converters.ObjectXMLSerializer;
  */
 public class SerializationController {
 
-    private static final List<String> types = List.of(
-            CacheDefinition.class.getCanonicalName(),
-            CacheStatistics.class.getCanonicalName(),
-            CacheEntry.class.getCanonicalName(),
-            CacheSnapshot.class.getCanonicalName());
-
-    private static final Class<?>[] classes = new Class[]{
+    private static final Class<?>[] SERIALIZABLE_CLASSES = {
             CacheDefinition.class,
             CacheStatistics.class,
             CacheEntry.class,
-            CacheSnapshot.class};
+            CacheSnapshot.class
+    };
 
     public static void registerSerializableClasses() {
-        ObjectXMLSerializer.getInstance().allowTypes(types, List.of(), List.of());
-        ObjectXMLSerializer.getInstance().processAnnotations(classes);
+        var names = Arrays.stream(SERIALIZABLE_CLASSES)
+                .map(Class::getCanonicalName)
+                .toList();
+        ObjectXMLSerializer.getInstance().allowTypes(names, List.of(), List.of());
+        ObjectXMLSerializer.getInstance().processAnnotations(SERIALIZABLE_CLASSES);
     }
 
     private SerializationController() {

@@ -341,12 +341,17 @@ public class CacheInspectorDialog extends JDialog {
     private JPanel buildBottomPanel(String cacheName) {
         var panel = new JPanel(new BorderLayout());
 
+        var usagePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        usagePanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 8, 0, 0));
+        var usageLabel = new JLabel("Usage: ");
+        usagePanel.add(usageLabel);
         var usageHint = new JTextField("$g('" + cacheName + "').lookup(key)");
         usageHint.setEditable(false);
         usageHint.setBorder(null);
         usageHint.setBackground(panel.getBackground());
         usageHint.setFont(new Font(Font.MONOSPACED, Font.PLAIN, usageHint.getFont().getSize()));
-        panel.add(usageHint, BorderLayout.WEST);
+        usagePanel.add(usageHint);
+        panel.add(usagePanel, BorderLayout.WEST);
 
         var refreshButton = new JButton("Refresh");
         refreshButton.addActionListener(e -> refreshSnapshot(refreshButton));

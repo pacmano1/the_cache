@@ -44,10 +44,32 @@ class CacheSnapshotTest {
     }
 
     @Test
-    void defaultConstructor_fieldsAreNull() {
+    void defaultConstructor_entriesAreEmpty() {
         var snapshot = new CacheSnapshot();
 
         assertNull(snapshot.getStatistics());
-        assertNull(snapshot.getEntries());
+        assertNotNull(snapshot.getEntries());
+        assertTrue(snapshot.getEntries().isEmpty());
+    }
+
+    @Test
+    void getEntries_returnsUnmodifiableList() {
+        var entries = new java.util.ArrayList<>(List.of(
+                new CacheEntry("k1", "v1", 1000L, 0L)));
+        var snapshot = new CacheSnapshot(new CacheStatistics(), entries);
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> snapshot.getEntries().add(new CacheEntry("k2", "v2", 2000L, 0L)));
+    }
+
+    @Test
+    void setEntries_makesDefensiveCopy() {
+        var entries = new java.util.ArrayList<>(List.of(
+                new CacheEntry("k1", "v1", 1000L, 0L)));
+        var snapshot = new CacheSnapshot();
+        snapshot.setEntries(entries);
+
+        entries.add(new CacheEntry("k2", "v2", 2000L, 0L));
+        assertEquals(1, snapshot.getEntries().size(), "Modifying original list should not affect snapshot");
     }
 }

@@ -23,7 +23,7 @@ public class CacheDefinitionRepository {
     private static final Logger log = LoggerFactory.getLogger(CacheDefinitionRepository.class);
     private static final String NAMESPACE = "CacheDefinition";
 
-    private static CacheDefinitionRepository instance;
+    private static volatile CacheDefinitionRepository instance;
 
     public static synchronized void init() {
         if (instance == null) {
