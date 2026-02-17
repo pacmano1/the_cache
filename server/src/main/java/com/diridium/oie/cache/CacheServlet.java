@@ -156,8 +156,9 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
                 throw new MirthApiException(Status.NOT_FOUND);
             }
 
+            dispatchEvent("Refresh Started", def.getName());
             cacheManager.refresh(id);
-            dispatchEvent("Refreshed", def.getName());
+            dispatchEvent("Refresh Completed", def.getName());
         } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {

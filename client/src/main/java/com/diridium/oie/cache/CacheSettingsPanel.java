@@ -352,6 +352,12 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         var selected = getSelectedDefinition();
         if (selected == null) return;
 
+        var confirm = JOptionPane.showConfirmDialog(this,
+                "This will re-fetch all cached entries for '" + selected.getName()
+                        + "' from the database in the background. Continue?",
+                "Refresh Cache", JOptionPane.OK_CANCEL_OPTION);
+        if (confirm != JOptionPane.OK_OPTION) return;
+
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws Exception {
@@ -363,15 +369,17 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
             protected void done() {
                 try {
                     get();
-                    JOptionPane.showMessageDialog(CacheSettingsPanel.this,
-                            "Cache '" + selected.getName() + "' refreshed.", "Refresh",
-                            JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception e) {
                     PlatformUI.MIRTH_FRAME.alertThrowable(
-                            PlatformUI.MIRTH_FRAME, e, "Failed to refresh cache");
+                            PlatformUI.MIRTH_FRAME, e, "Failed to start cache refresh");
                 }
             }
         }.execute();
+
+        JOptionPane.showMessageDialog(this,
+                "Refresh started for '" + selected.getName()
+                        + "'. Check the Event Log for completion.",
+                "Refresh Cache", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private CacheServletInterface getServlet() {
