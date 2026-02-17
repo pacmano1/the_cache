@@ -7,11 +7,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -29,25 +31,35 @@ public class CacheManager {
 
     private static final Logger log = LoggerFactory.getLogger(CacheManager.class);
 
-    private static CacheManager instance;
+    private static volatile CacheManager instance;
 
     private final ConcurrentHashMap<String, LoadingCache<String, String>> caches = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CacheDefinition> definitions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> loadTimestamps = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, LongAdder>> hitCounts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> nameToId = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Connection> connections = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ReentrantLock> connectionLocks = new ConcurrentHashMap<>();
 
-    public static synchronized CacheManager getInstance() {
-        if (instance == null) {
-            instance = new CacheManager();
+    public static CacheManager getInstance() {
+        var result = instance;
+        if (result == null) {
+            synchronized (CacheManager.class) {
+                result = instance;
+                if (result == null) {
+                    instance = result = new CacheManager();
+                }
+            }
         }
-        return instance;
+        return result;
     }
 
-    public static synchronized void shutdown() {
-        if (instance != null) {
-            instance.invalidateAll();
-            instance = null;
+    public static void shutdown() {
+        synchronized (CacheManager.class) {
+            if (instance != null) {
+                instance.invalidateAll();
+                instance = null;
+            }
         }
     }
 
@@ -81,6 +93,7 @@ public class CacheManager {
         loadTimestamps.put(definition.getId(), timestamps);
         hitCounts.put(definition.getId(), new ConcurrentHashMap<>());
         nameToId.put(definition.getName(), definition.getId());
+        connectionLocks.putIfAbsent(definition.getId(), new ReentrantLock());
         log.info("Registered cache '{}'", definition.getName());
     }
 
@@ -98,6 +111,17 @@ public class CacheManager {
         }
         loadTimestamps.remove(definitionId);
         hitCounts.remove(definitionId);
+
+        // Acquire lock so we wait for any in-flight query to finish before closing
+        var lock = connectionLocks.remove(definitionId);
+        if (lock != null) {
+            lock.lock();
+            try {
+                closeConnectionQuietly(definitionId);
+            } finally {
+                lock.unlock();
+            }
+        }
     }
 
     /**
@@ -308,6 +332,10 @@ public class CacheManager {
     }
 
     private void invalidateAll() {
+        for (var id : connections.keySet()) {
+            closeConnectionQuietly(id);
+        }
+        connectionLocks.clear();
         caches.values().forEach(LoadingCache::invalidateAll);
         caches.clear();
         definitions.clear();
@@ -324,38 +352,86 @@ public class CacheManager {
     }
 
     /**
-     * Execute the parameterized query against the external database.
-     * Opens a connection, runs the query, closes the connection.
+     * Execute the parameterized query against the external database using a persistent connection.
+     * Acquires a per-cache lock so concurrent misses for the same cache are serialized.
+     * On failure, closes the persistent connection so the next call reconnects.
      * Returns null if no row matches (Guava will translate this to InvalidCacheLoadException).
      */
     private String queryExternalDatabase(CacheDefinition definition, String key) throws Exception {
         Class.forName(definition.getDriver());
 
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
+        var lock = connectionLocks.get(definition.getId());
+        if (lock == null) {
+            throw new IllegalStateException("No lock for cache: " + definition.getName());
+        }
+
+        lock.lock();
         try {
-            conn = DriverManager.getConnection(
-                    definition.getUrl(), definition.getUsername(), definition.getPassword());
-            conn.setAutoCommit(true);
+            var conn = getOrCreateConnection(definition);
 
-            stmt = conn.prepareStatement(definition.getQuery());
-            stmt.setString(1, key);
+            PreparedStatement stmt = null;
+            ResultSet rs = null;
+            try {
+                stmt = conn.prepareStatement(definition.getQuery());
+                stmt.setString(1, key);
 
-            rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getString(definition.getValueColumn());
+                rs = stmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getString(definition.getValueColumn());
+                }
+                return null;
+            } finally {
+                if (rs != null) {
+                    try { rs.close(); } catch (Exception e) { log.debug("Failed to close ResultSet", e); }
+                }
+                if (stmt != null) {
+                    try { stmt.close(); } catch (Exception e) { log.debug("Failed to close PreparedStatement", e); }
+                }
             }
-            return null;
+        } catch (SQLException e) {
+            closeConnectionQuietly(definition.getId());
+            throw e;
         } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (Exception e) { log.debug("Failed to close ResultSet", e); }
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Return the persistent connection for a cache, creating or reconnecting as needed.
+     * Must be called while holding the per-cache lock.
+     */
+    private Connection getOrCreateConnection(CacheDefinition definition) throws SQLException {
+        var existing = connections.get(definition.getId());
+        if (existing != null) {
+            try {
+                if (existing.isValid(10)) {
+                    return existing;
+                }
+            } catch (SQLException e) {
+                log.debug("Connection validity check failed for cache '{}'", definition.getName(), e);
             }
-            if (stmt != null) {
-                try { stmt.close(); } catch (Exception e) { log.debug("Failed to close PreparedStatement", e); }
-            }
-            if (conn != null) {
-                try { conn.close(); } catch (Exception e) { log.error("Failed to close database connection", e); }
+            // Stale or broken — close and reconnect
+            closeConnectionQuietly(definition.getId());
+        }
+
+        var conn = DriverManager.getConnection(
+                definition.getUrl(), definition.getUsername(), definition.getPassword());
+        conn.setAutoCommit(true);
+        connections.put(definition.getId(), conn);
+        log.debug("Opened persistent connection for cache '{}'", definition.getName());
+        return conn;
+    }
+
+    /**
+     * Close and remove the persistent connection for a cache, swallowing any errors.
+     */
+    private void closeConnectionQuietly(String definitionId) {
+        var conn = connections.remove(definitionId);
+        if (conn != null) {
+            try {
+                conn.close();
+            } catch (SQLException e) {
+                log.debug("Failed to close persistent connection for cache '{}'", definitionId, e);
             }
         }
     }
