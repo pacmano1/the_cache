@@ -91,9 +91,23 @@ class CacheDefinitionTableModelTest {
         model.setDefinitions(List.of(def));
 
         assertEquals("test", model.getValueAt(0, 0));
-        assertEquals(true, model.getValueAt(0, 1));
+        assertEquals("Yes", model.getValueAt(0, 1));
         assertEquals(500L, model.getValueAt(0, 2));
         assertEquals(15L, model.getValueAt(0, 3));
+    }
+
+    @Test
+    void enabledColumn_rendersAsText() {
+        var enabled = createDefinition("id-1", "cache-a");
+        enabled.setEnabled(true);
+        var disabled = createDefinition("id-2", "cache-b");
+        disabled.setEnabled(false);
+
+        model.setDefinitions(List.of(enabled, disabled));
+
+        assertEquals(String.class, model.getColumnClass(1));
+        assertEquals("Yes", model.getValueAt(0, 1));
+        assertEquals("No", model.getValueAt(1, 1));
     }
 
     @Test
