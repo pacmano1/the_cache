@@ -119,7 +119,7 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         btnRefresh.addActionListener(e -> refreshCache());
 
 
-        var buttonPanel = new JPanel(new MigLayout("insets 0", "[][][][]push[][]", ""));
+        var buttonPanel = new JPanel(new MigLayout("insets 0 12 0 12", "[][][][]push[][]", ""));
         buttonPanel.add(btnNew);
         buttonPanel.add(btnEdit);
         buttonPanel.add(btnDuplicate);
@@ -127,7 +127,7 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         buttonPanel.add(btnShowCache);
         buttonPanel.add(btnRefresh);
 
-        var topPanel = new JPanel(new MigLayout("insets 0, flowy", "[grow]", "[]4[]"));
+        var topPanel = new JPanel(new MigLayout("insets 0 12 0 12, flowy", "[grow]", "[]4[]"));
         topPanel.add(buttonPanel, "growx");
         topPanel.add(filterField, "growx");
 

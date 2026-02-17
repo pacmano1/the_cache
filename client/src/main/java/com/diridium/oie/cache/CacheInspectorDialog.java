@@ -4,10 +4,15 @@
 package com.diridium.oie.cache;
 
 import java.awt.BorderLayout;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -16,6 +21,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import javax.swing.AbstractAction;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
@@ -29,6 +35,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingWorker;
 import javax.swing.table.AbstractTableModel;
 
+import com.mirth.connect.client.ui.Frame;
 import com.mirth.connect.client.ui.components.MirthTable;
 
 import net.miginfocom.swing.MigLayout;
@@ -104,9 +111,9 @@ public class CacheInspectorDialog extends JDialog {
                     revalidate();
                     repaint();
                 } catch (Exception e) {
-                    javax.swing.JOptionPane.showMessageDialog(CacheInspectorDialog.this,
+                    JOptionPane.showMessageDialog(CacheInspectorDialog.this,
                             "Failed to refresh: " + e.getMessage(),
-                            "Refresh Error", javax.swing.JOptionPane.ERROR_MESSAGE);
+                            "Refresh Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }.execute();
@@ -128,14 +135,16 @@ public class CacheInspectorDialog extends JDialog {
         panel.add(new JLabel(pf.format(stats.getHitRate())));
         panel.add(new JLabel("Avg Load:"));
         panel.add(new JLabel(String.format("%.1f ms", avgLoadMs)));
-        var helpButton = new JButton("?");
-        helpButton.setForeground(new java.awt.Color(0, 102, 204));
-        helpButton.setFont(helpButton.getFont().deriveFont(java.awt.Font.BOLD));
-        helpButton.setBorderPainted(false);
-        helpButton.setContentAreaFilled(false);
-        helpButton.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
-        helpButton.addActionListener(e -> showStatsHelp());
-        panel.add(helpButton, "spany 3, top, wrap");
+        var helpIcon = new JLabel(new ImageIcon(Frame.class.getResource("images/help.png")));
+        helpIcon.setToolTipText("Cache Statistics Help");
+        helpIcon.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        helpIcon.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                showStatsHelp();
+            }
+        });
+        panel.add(helpIcon, "spany 3, top, wrap");
 
         panel.add(new JLabel("Hits:"));
         panel.add(new JLabel(nf.format(stats.getHitCount())));
@@ -156,9 +165,9 @@ public class CacheInspectorDialog extends JDialog {
         table.setAutoCreateRowSorter(true);
 
         // Tooltip for full value on the Value column
-        table.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+        table.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
-            public void mouseMoved(java.awt.event.MouseEvent e) {
+            public void mouseMoved(MouseEvent e) {
                 int row = table.rowAtPoint(e.getPoint());
                 int col = table.columnAtPoint(e.getPoint());
                 if (row >= 0 && col == 1) {
@@ -181,7 +190,7 @@ public class CacheInspectorDialog extends JDialog {
         usageHint.setEditable(false);
         usageHint.setBorder(null);
         usageHint.setBackground(panel.getBackground());
-        usageHint.setFont(new java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, usageHint.getFont().getSize()));
+        usageHint.setFont(new Font(Font.MONOSPACED, Font.PLAIN, usageHint.getFont().getSize()));
         panel.add(usageHint, BorderLayout.WEST);
 
         var refreshButton = new JButton("Refresh");

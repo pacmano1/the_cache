@@ -8,9 +8,11 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
 
 import com.mirth.connect.client.core.ClientException;
+import com.mirth.connect.client.core.api.MirthApiException;
 import com.mirth.connect.model.ServerEvent;
 import com.mirth.connect.model.ServerEvent.Level;
 import com.mirth.connect.model.ServerEvent.Outcome;
@@ -49,7 +51,7 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             return repo.getAll();
         } catch (Exception e) {
             log.error("Failed to list cache definitions", e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -58,14 +60,14 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
         try {
             var def = repo.getById(id);
             if (def == null) {
-                throw new ClientException("Cache definition not found: " + id);
+                throw new MirthApiException(Status.NOT_FOUND);
             }
             return def;
-        } catch (ClientException e) {
+        } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {
             log.error("Failed to get cache definition {}", id, e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -75,7 +77,7 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             // Check for duplicate name
             var existing = repo.getByName(definition.getName());
             if (existing != null) {
-                throw new ClientException("A cache definition with name '" + definition.getName() + "' already exists");
+                throw new MirthApiException(Status.CONFLICT);
             }
 
             var created = repo.create(definition);
@@ -83,11 +85,11 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
 
             dispatchEvent("Created", created.getName());
             return created;
-        } catch (ClientException e) {
+        } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {
             log.error("Failed to create cache definition", e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -96,13 +98,13 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
         try {
             var existing = repo.getById(id);
             if (existing == null) {
-                throw new ClientException("Cache definition not found: " + id);
+                throw new MirthApiException(Status.NOT_FOUND);
             }
 
             // Check for duplicate name (exclude self)
             var byName = repo.getByName(definition.getName());
             if (byName != null && !byName.getId().equals(id)) {
-                throw new ClientException("A cache definition with name '" + definition.getName() + "' already exists");
+                throw new MirthApiException(Status.CONFLICT);
             }
 
             definition.setId(id);
@@ -114,11 +116,11 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
 
             dispatchEvent("Updated", updated.getName());
             return updated;
-        } catch (ClientException e) {
+        } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {
             log.error("Failed to update cache definition {}", id, e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -127,18 +129,18 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
         try {
             var existing = repo.getById(id);
             if (existing == null) {
-                throw new ClientException("Cache definition not found: " + id);
+                throw new MirthApiException(Status.NOT_FOUND);
             }
 
             cacheManager.unregisterCache(id);
             repo.delete(id);
 
             dispatchEvent("Deleted", existing.getName());
-        } catch (ClientException e) {
+        } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {
             log.error("Failed to delete cache definition {}", id, e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -147,16 +149,16 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
         try {
             var def = repo.getById(id);
             if (def == null) {
-                throw new ClientException("Cache definition not found: " + id);
+                throw new MirthApiException(Status.NOT_FOUND);
             }
 
             cacheManager.refresh(id);
             dispatchEvent("Refreshed", def.getName());
-        } catch (ClientException e) {
+        } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {
             log.error("Failed to refresh cache {}", id, e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -165,17 +167,17 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
         try {
             var def = repo.getById(id);
             if (def == null) {
-                throw new ClientException("Cache definition not found: " + id);
+                throw new MirthApiException(Status.NOT_FOUND);
             }
 
             var result = cacheManager.testConnection(def);
             dispatchEvent("Connection Test", def.getName());
             return result;
-        } catch (ClientException e) {
+        } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {
             log.error("Failed to test connection for cache {}", id, e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -187,7 +189,7 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             return result;
         } catch (Exception e) {
             log.error("Failed to test inline connection", e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -199,7 +201,7 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             return result;
         } catch (Exception e) {
             log.error("Failed to test inline query", e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -209,7 +211,7 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             return cacheManager.getAllStatistics();
         } catch (Exception e) {
             log.error("Failed to get all cache statistics", e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -218,14 +220,14 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
         try {
             var snapshot = cacheManager.getSnapshot(id);
             if (snapshot == null) {
-                throw new ClientException("Cache not found or not active: " + id);
+                throw new MirthApiException(Status.NOT_FOUND);
             }
             return snapshot;
-        } catch (ClientException e) {
+        } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {
             log.error("Failed to get snapshot for cache {}", id, e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
@@ -234,14 +236,14 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
         try {
             var stats = cacheManager.getStatistics(id);
             if (stats == null) {
-                throw new ClientException("Cache not found or not active: " + id);
+                throw new MirthApiException(Status.NOT_FOUND);
             }
             return stats;
-        } catch (ClientException e) {
+        } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {
             log.error("Failed to get statistics for cache {}", id, e);
-            throw new ClientException(e);
+            throw new MirthApiException(e);
         }
     }
 
