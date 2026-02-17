@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0
- * Copyright (c) 2026 Diridium <https://diridium.com> */
+ * Copyright (c) 2026 Diridium Technologies Inc. */
 
 package com.diridium.oie.cache;
 

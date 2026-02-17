@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!-- SPDX-License-Identifier: MPL-2.0 -->
-<!-- Copyright (c) 2026 Diridium <https://diridium.com> -->
+<!-- Copyright (c) 2026 Diridium Technologies Inc. -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

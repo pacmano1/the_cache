@@ -180,7 +180,7 @@ JUnit 5 + Mockito. Tests live in each module's `src/test/java/` directory.
 
 ## Conventions
 
-- License header: `/* SPDX-License-Identifier: MPL-2.0 \n * Copyright (c) 2026 Diridium <https://diridium.com> */`
+- License header: `/* SPDX-License-Identifier: MPL-2.0 \n * Copyright (c) 2026 Diridium Technologies Inc. */`
 - Java 17 (var, switch expressions, text blocks OK)
 - JUnit 5 + Mockito for tests
 - MigLayout for complex Swing layouts, BorderLayout/FlowLayout for simple ones

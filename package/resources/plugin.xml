@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!-- SPDX-License-Identifier: MPL-2.0 -->
-<!-- Copyright (c) 2026 Diridium <https://diridium.com> -->
+<!-- Copyright (c) 2026 Diridium Technologies Inc. -->
 
 <pluginMetaData path="oie-cache-manager">
     <name>OIE Cache Manager</name>
-    <author>Diridium</author>
+    <author>Diridium Technologies Inc.</author>
     <pluginVersion>${project.version}</pluginVersion>
     <mirthVersion>${plugin.supported.mc.versions}</mirthVersion>
     <url>https://diridium.com</url>

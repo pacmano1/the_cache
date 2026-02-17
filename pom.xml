@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 
 <!-- SPDX-License-Identifier: MPL-2.0 -->
-<!-- Copyright (c) 2026 Diridium <https://diridium.com> -->
+<!-- Copyright (c) 2026 Diridium Technologies Inc. -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
@@ -57,7 +57,7 @@
     </profiles>
 
     <organization>
-        <name>Diridium</name>
+        <name>Diridium Technologies Inc.</name>
         <url>https://diridium.com</url>
     </organization>
 
@@ -157,7 +157,7 @@
                         <manifestEntries>
                             <Application-Name>OIE Cache Manager</Application-Name>
                             <url>${project.url}</url>
-                            <authors>Diridium</authors>
+                            <authors>Diridium Technologies Inc.</authors>
                         </manifestEntries>
                     </archive>
                 </configuration>

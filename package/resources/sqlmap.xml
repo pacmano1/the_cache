@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!-- SPDX-License-Identifier: MPL-2.0 -->
-<!-- Copyright (c) 2026 Diridium <https://diridium.com> -->
+<!-- Copyright (c) 2026 Diridium Technologies Inc. -->
 
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "conf/dtd/mybatis-3-mapper.dtd">
 
