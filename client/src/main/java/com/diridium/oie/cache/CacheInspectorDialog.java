@@ -8,6 +8,8 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -19,6 +21,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
@@ -27,13 +30,19 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
+import javax.swing.RowFilter;
 import javax.swing.SwingWorker;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.TableRowSorter;
 
 import com.mirth.connect.client.ui.Frame;
 import com.mirth.connect.client.ui.components.MirthTable;
@@ -53,7 +62,9 @@ public class CacheInspectorDialog extends JDialog {
 
     private final Supplier<CacheSnapshot> snapshotSupplier;
     private JPanel statsPanel;
-    private JScrollPane tableScrollPane;
+    private JPanel centerPanel;
+    private JTextField searchField;
+    private TableRowSorter<EntryTableModel> rowSorter;
 
     public CacheInspectorDialog(JFrame parent, String cacheName,
                                 CacheSnapshot snapshot, Supplier<CacheSnapshot> snapshotSupplier) {
@@ -63,10 +74,10 @@ public class CacheInspectorDialog extends JDialog {
         setLayout(new BorderLayout(0, 8));
 
         statsPanel = buildStatsPanel(snapshot.getStatistics());
-        tableScrollPane = new JScrollPane(buildEntriesTable(snapshot.getEntries()));
+        centerPanel = buildCenterPanel(snapshot.getEntries());
 
         add(statsPanel, BorderLayout.NORTH);
-        add(tableScrollPane, BorderLayout.CENTER);
+        add(centerPanel, BorderLayout.CENTER);
         add(buildBottomPanel(cacheName), BorderLayout.SOUTH);
 
         setSize(700, 500);
@@ -99,15 +110,17 @@ public class CacheInspectorDialog extends JDialog {
                 refreshButton.setText("Refresh");
                 try {
                     var snapshot = get();
+                    var searchText = searchField.getText();
 
                     remove(statsPanel);
-                    remove(tableScrollPane);
+                    remove(centerPanel);
 
                     statsPanel = buildStatsPanel(snapshot.getStatistics());
-                    tableScrollPane = new JScrollPane(buildEntriesTable(snapshot.getEntries()));
+                    centerPanel = buildCenterPanel(snapshot.getEntries());
+                    searchField.setText(searchText);
 
                     add(statsPanel, BorderLayout.NORTH);
-                    add(tableScrollPane, BorderLayout.CENTER);
+                    add(centerPanel, BorderLayout.CENTER);
                     revalidate();
                     repaint();
                 } catch (Exception e) {
@@ -159,10 +172,103 @@ public class CacheInspectorDialog extends JDialog {
         return panel;
     }
 
+    private JPanel buildCenterPanel(List<CacheEntry> entries) {
+        var panel = new JPanel(new BorderLayout(0, 4));
+
+        var searchPanel = new JPanel(new BorderLayout(4, 0));
+        searchPanel.add(new JLabel("Search keys:"), BorderLayout.WEST);
+        searchField = new JTextField();
+        searchField.setToolTipText("Filter entries by key (case-insensitive)");
+        searchField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { applyFilter(); }
+            @Override public void removeUpdate(DocumentEvent e) { applyFilter(); }
+            @Override public void changedUpdate(DocumentEvent e) { applyFilter(); }
+        });
+        searchPanel.add(searchField, BorderLayout.CENTER);
+
+        panel.add(searchPanel, BorderLayout.NORTH);
+        panel.add(new JScrollPane(buildEntriesTable(entries)), BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private void applyFilter() {
+        var text = searchField.getText().trim();
+        if (text.isEmpty()) {
+            rowSorter.setRowFilter(null);
+        } else {
+            rowSorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(text), 0));
+        }
+    }
+
+    private void copySelectedCell(MirthTable table) {
+        int row = table.getSelectedRow();
+        int col = table.getSelectedColumn();
+        if (row < 0 || col < 0) return;
+
+        int modelRow = table.convertRowIndexToModel(row);
+        var model = (EntryTableModel) table.getModel();
+        String value;
+        if (col == 1) {
+            value = model.getEntry(modelRow).getValue();
+        } else {
+            value = String.valueOf(table.getValueAt(row, col));
+        }
+
+        var clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+        clipboard.setContents(new StringSelection(value), null);
+    }
+
     private MirthTable buildEntriesTable(List<CacheEntry> entries) {
         var table = new MirthTable();
-        table.setModel(new EntryTableModel(entries));
-        table.setAutoCreateRowSorter(true);
+        var model = new EntryTableModel(entries);
+        table.setModel(model);
+
+        rowSorter = new TableRowSorter<>(model);
+        table.setRowSorter(rowSorter);
+
+        table.setCellSelectionEnabled(true);
+
+        // Ctrl+C copies the selected cell value (full value for the Value column)
+        table.getInputMap(JComponent.WHEN_FOCUSED)
+                .put(KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.CTRL_DOWN_MASK), "copyCell");
+        table.getActionMap().put("copyCell", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                copySelectedCell(table);
+            }
+        });
+
+        // Right-click context menu
+        var popup = new JPopupMenu();
+        var copyItem = new JMenuItem("Copy Value");
+        copyItem.addActionListener(e -> {
+            int row = table.getSelectedRow();
+            if (row < 0) return;
+            int modelRow = table.convertRowIndexToModel(row);
+            var entry = ((EntryTableModel) table.getModel()).getEntry(modelRow);
+            var clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            clipboard.setContents(new StringSelection(entry.getValue()), null);
+        });
+        popup.add(copyItem);
+
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) { maybeShowPopup(e); }
+
+            @Override
+            public void mouseReleased(MouseEvent e) { maybeShowPopup(e); }
+
+            private void maybeShowPopup(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    int row = table.rowAtPoint(e.getPoint());
+                    if (row >= 0) {
+                        table.setRowSelectionInterval(row, row);
+                        popup.show(e.getComponent(), e.getX(), e.getY());
+                    }
+                }
+            }
+        });
 
         // Tooltip for full value on the Value column
         table.addMouseMotionListener(new MouseMotionAdapter() {
@@ -246,6 +352,10 @@ public class CacheInspectorDialog extends JDialog {
 
         EntryTableModel(List<CacheEntry> entries) {
             this.entries = entries;
+        }
+
+        CacheEntry getEntry(int rowIndex) {
+            return entries.get(rowIndex);
         }
 
         @Override
