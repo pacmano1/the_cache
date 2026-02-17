@@ -20,8 +20,8 @@ class CacheSnapshotTest {
         stats.setSize(2);
 
         var entries = List.of(
-                new CacheEntry("k1", "v1", 1000L),
-                new CacheEntry("k2", "v2", 2000L));
+                new CacheEntry("k1", "v1", 1000L, 0L),
+                new CacheEntry("k2", "v2", 2000L, 0L));
 
         var snapshot = new CacheSnapshot();
         snapshot.setStatistics(stats);
@@ -35,7 +35,7 @@ class CacheSnapshotTest {
     @Test
     void convenienceConstructor_setsAllFields() {
         var stats = new CacheStatistics();
-        var entries = List.of(new CacheEntry("k", "v", 500L));
+        var entries = List.of(new CacheEntry("k", "v", 500L, 0L));
 
         var snapshot = new CacheSnapshot(stats, entries);
 

@@ -26,11 +26,12 @@ class CacheEntryTest {
 
     @Test
     void convenienceConstructor_setsAllFields() {
-        var entry = new CacheEntry("KEY", "VALUE", 12345L);
+        var entry = new CacheEntry("KEY", "VALUE", 12345L, 42L);
 
         assertEquals("KEY", entry.getKey());
         assertEquals("VALUE", entry.getValue());
         assertEquals(12345L, entry.getLoadedAtMillis());
+        assertEquals(42L, entry.getHitCount());
     }
 
     @Test
@@ -40,5 +41,13 @@ class CacheEntryTest {
         assertNull(entry.getKey());
         assertNull(entry.getValue());
         assertEquals(0L, entry.getLoadedAtMillis());
+        assertEquals(0L, entry.getHitCount());
+    }
+
+    @Test
+    void setHitCount_roundTrip() {
+        var entry = new CacheEntry();
+        entry.setHitCount(99L);
+        assertEquals(99L, entry.getHitCount());
     }
 }

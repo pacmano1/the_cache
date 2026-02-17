@@ -15,7 +15,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.AbstractAction;
-import javax.swing.ButtonGroup;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
@@ -34,7 +33,6 @@ import com.mirth.connect.client.core.ClientException;
 import com.mirth.connect.client.ui.PlatformUI;
 import com.mirth.connect.client.ui.components.MirthComboBox;
 import com.mirth.connect.client.ui.components.MirthPasswordField;
-import com.mirth.connect.client.ui.components.MirthRadioButton;
 import com.mirth.connect.client.ui.components.MirthTextField;
 import com.mirth.connect.client.ui.components.rsta.MirthRTextScrollPane;
 import com.mirth.connect.model.DriverInfo;
@@ -74,14 +72,8 @@ public class CacheDefinitionDialog extends JDialog {
     private JButton testQueryButton;
 
     // Query
-    private MirthRadioButton useJavaScriptYes;
-    private MirthRadioButton useJavaScriptNo;
-    private JLabel queryLabel;
     private MirthRTextScrollPane queryPane;
-    private JButton generateConnectionButton;
-    private JLabel keyColumnLabel;
     private MirthTextField keyColumnField;
-    private JLabel valueColumnLabel;
     private MirthTextField valueColumnField;
 
     // Cache settings
@@ -95,7 +87,11 @@ public class CacheDefinitionDialog extends JDialog {
     private final AtomicBoolean driverAdjusting = new AtomicBoolean(false);
 
     public CacheDefinitionDialog(JFrame parent, CacheDefinition existing) {
-        super(parent, existing == null ? "New Cache Definition" : "Edit Cache Definition", true);
+        this(parent, existing, existing == null ? "New Cache Definition" : "Edit Cache Definition");
+    }
+
+    public CacheDefinitionDialog(JFrame parent, CacheDefinition existing, String title) {
+        super(parent, title, true);
         this.definition = existing != null ? existing : new CacheDefinition();
 
         loadDrivers();
@@ -167,32 +163,11 @@ public class CacheDefinitionDialog extends JDialog {
         testQueryButton = new JButton("Test Query");
         testQueryButton.addActionListener(e -> onTestQuery());
 
-        // JavaScript toggle
-        var jsGroup = new ButtonGroup();
-        useJavaScriptNo = new MirthRadioButton("No");
-        useJavaScriptNo.setBackground(getBackground());
-        useJavaScriptNo.addActionListener(e -> onUseJavaScriptChanged(false));
-        jsGroup.add(useJavaScriptNo);
-
-        useJavaScriptYes = new MirthRadioButton("Yes");
-        useJavaScriptYes.setBackground(getBackground());
-        useJavaScriptYes.addActionListener(e -> onUseJavaScriptChanged(true));
-        jsGroup.add(useJavaScriptYes);
-
-        useJavaScriptNo.setSelected(true);
-
-        // Query editor with syntax highlighting
-        queryLabel = new JLabel("SQL:");
+        // Query editor with SQL syntax highlighting
         queryPane = new MirthRTextScrollPane(ContextType.GLOBAL_DEPLOY, true,
                 SyntaxConstants.SYNTAX_STYLE_SQL, false);
 
-        generateConnectionButton = new JButton("Generate Connection");
-        generateConnectionButton.addActionListener(e -> onGenerateConnection());
-        generateConnectionButton.setEnabled(false);
-
-        keyColumnLabel = new JLabel("Key Column:");
         keyColumnField = new MirthTextField();
-        valueColumnLabel = new JLabel("Value Column:");
         valueColumnField = new MirthTextField();
 
         maxSizeField = new MirthTextField();
@@ -240,22 +215,13 @@ public class CacheDefinitionDialog extends JDialog {
         content.add(testPanel, "wrap");
 
         // Query section
-        content.add(new JLabel("Use JavaScript:"));
-        var jsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        jsPanel.add(useJavaScriptYes);
-        jsPanel.add(useJavaScriptNo);
-        content.add(jsPanel, "wrap");
+        content.add(new JLabel("SQL:"), "top");
+        content.add(queryPane, "h 100:140:200, wrap");
 
-        content.add(queryLabel, "top");
-        var queryPanel = new JPanel(new MigLayout("insets 0, fill", "[grow, fill]", "[grow, fill][]"));
-        queryPanel.add(queryPane, "grow, wrap");
-        queryPanel.add(generateConnectionButton, "right");
-        content.add(queryPanel, "h 100:140:200, wrap");
-
-        content.add(keyColumnLabel);
+        content.add(new JLabel("Key Column:"));
         content.add(keyColumnField, "wrap");
 
-        content.add(valueColumnLabel);
+        content.add(new JLabel("Value Column:"));
         content.add(valueColumnField, "wrap");
 
         // Cache settings section
@@ -288,10 +254,6 @@ public class CacheDefinitionDialog extends JDialog {
         if (definition.getUsername() != null) usernameField.setText(definition.getUsername());
         if (definition.getPassword() != null) passwordField.setText(definition.getPassword());
 
-        if (definition.isUseJavaScript()) {
-            useJavaScriptYes.setSelected(true);
-            onUseJavaScriptChanged(true);
-        }
         if (definition.getQuery() != null) queryPane.setText(definition.getQuery());
 
         if (definition.getKeyColumn() != null) keyColumnField.setText(definition.getKeyColumn());
@@ -389,32 +351,6 @@ public class CacheDefinitionDialog extends JDialog {
         urlField.setText(selected.getTemplate());
     }
 
-    // ---- JavaScript toggle ----
-
-    private void onUseJavaScriptChanged(boolean useJs) {
-        if (useJs) {
-            queryLabel.setText("JavaScript:");
-            queryPane.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT);
-            generateConnectionButton.setEnabled(true);
-            testConnectionButton.setEnabled(false);
-            testQueryButton.setEnabled(false);
-            keyColumnLabel.setVisible(false);
-            keyColumnField.setVisible(false);
-            valueColumnLabel.setVisible(false);
-            valueColumnField.setVisible(false);
-        } else {
-            queryLabel.setText("SQL:");
-            queryPane.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_SQL);
-            generateConnectionButton.setEnabled(false);
-            testConnectionButton.setEnabled(true);
-            testQueryButton.setEnabled(true);
-            keyColumnLabel.setVisible(true);
-            keyColumnField.setVisible(true);
-            valueColumnLabel.setVisible(true);
-            valueColumnField.setVisible(true);
-        }
-    }
-
     private void onTestConnection() {
         var def = new CacheDefinition();
         def.setDriver(driverClassField.getText().trim());
@@ -435,7 +371,7 @@ public class CacheDefinitionDialog extends JDialog {
 
             @Override
             protected void done() {
-                testConnectionButton.setEnabled(!useJavaScriptYes.isSelected());
+                testConnectionButton.setEnabled(true);
                 testConnectionButton.setText("Test Connection");
                 try {
                     var result = get();
@@ -480,7 +416,7 @@ public class CacheDefinitionDialog extends JDialog {
 
             @Override
             protected void done() {
-                testQueryButton.setEnabled(!useJavaScriptYes.isSelected());
+                testQueryButton.setEnabled(true);
                 testQueryButton.setText("Test Query");
                 try {
                     var result = get();
@@ -496,35 +432,6 @@ public class CacheDefinitionDialog extends JDialog {
         }.execute();
     }
 
-    private void onGenerateConnection() {
-        var sb = new StringBuilder();
-        sb.append("var dbConn;\n\n");
-        sb.append("try {\n");
-        sb.append("\tdbConn = DatabaseConnectionFactory.createDatabaseConnection('");
-        sb.append(driverClassField.getText()).append("', '");
-        sb.append(urlField.getText()).append("', '");
-        sb.append(usernameField.getText()).append("', '");
-        sb.append(new String(passwordField.getPassword())).append("');\n\n");
-        sb.append("\tvar result = dbConn.executeCachedQuery(\"SELECT value_col FROM table WHERE key_col = '\" + $cacheKey + \"'\");\n\n");
-        sb.append("\tif (result.next()) {\n");
-        sb.append("\t\treturn result.getString(1);\n");
-        sb.append("\t}\n");
-        sb.append("\treturn null;\n");
-        sb.append("} finally {\n");
-        sb.append("\tif (dbConn) {\n");
-        sb.append("\t\tdbConn.close();\n");
-        sb.append("\t}\n");
-        sb.append("}");
-
-        var existing = queryPane.getText();
-        if (existing != null && !existing.trim().isEmpty()) {
-            queryPane.setText(sb + "\n\n" + existing);
-        } else {
-            queryPane.setText(sb.toString());
-        }
-        queryPane.getTextArea().requestFocus();
-    }
-
     // ---- Save / validation ----
 
     private void onSave() {
@@ -535,22 +442,18 @@ public class CacheDefinitionDialog extends JDialog {
             return;
         }
 
-        boolean useJs = useJavaScriptYes.isSelected();
+        var driverClass = driverClassField.getText().trim();
+        if (driverClass.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Driver class is required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            driverClassField.requestFocus();
+            return;
+        }
 
-        if (!useJs) {
-            var driverClass = driverClassField.getText().trim();
-            if (driverClass.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Driver class is required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
-                driverClassField.requestFocus();
-                return;
-            }
-
-            var url = urlField.getText().trim();
-            if (url.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "JDBC URL is required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
-                urlField.requestFocus();
-                return;
-            }
+        var url = urlField.getText().trim();
+        if (url.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "JDBC URL is required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            urlField.requestFocus();
+            return;
         }
 
         var query = queryPane.getText().trim();
@@ -580,14 +483,13 @@ public class CacheDefinitionDialog extends JDialog {
 
         definition.setName(name);
         definition.setEnabled(enabledCheckbox.isSelected());
-        definition.setDriver(driverClassField.getText().trim());
-        definition.setUrl(urlField.getText().trim());
+        definition.setDriver(driverClass);
+        definition.setUrl(url);
         definition.setUsername(usernameField.getText().trim());
         definition.setPassword(new String(passwordField.getPassword()));
-        definition.setUseJavaScript(useJs);
         definition.setQuery(query);
-        definition.setKeyColumn(useJs ? null : keyColumnField.getText().trim());
-        definition.setValueColumn(useJs ? null : valueColumnField.getText().trim());
+        definition.setKeyColumn(keyColumnField.getText().trim());
+        definition.setValueColumn(valueColumnField.getText().trim());
         definition.setMaxSize(maxSize);
         definition.setEvictionDurationMinutes(eviction);
 

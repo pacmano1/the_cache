@@ -46,10 +46,10 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
     private CacheDefinitionTableModel tableModel;
     private JButton btnNew;
     private JButton btnEdit;
+    private JButton btnDuplicate;
     private JButton btnDelete;
     private JButton btnShowCache;
     private JButton btnRefresh;
-    private JButton btnTestConnection;
     private JTextField filterField;
     private TableRowSorter<CacheDefinitionTableModel> rowSorter;
 
@@ -102,6 +102,10 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         btnEdit.setEnabled(false);
         btnEdit.addActionListener(e -> editDefinition());
 
+        btnDuplicate = new JButton("Duplicate");
+        btnDuplicate.setEnabled(false);
+        btnDuplicate.addActionListener(e -> duplicateDefinition());
+
         btnDelete = new JButton("Delete");
         btnDelete.setEnabled(false);
         btnDelete.addActionListener(e -> deleteDefinition());
@@ -114,17 +118,14 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         btnRefresh.setEnabled(false);
         btnRefresh.addActionListener(e -> refreshCache());
 
-        btnTestConnection = new JButton("Test Connection");
-        btnTestConnection.setEnabled(false);
-        btnTestConnection.addActionListener(e -> testConnection());
 
-        var buttonPanel = new JPanel(new MigLayout("insets 0", "[][]push[][][][]", ""));
+        var buttonPanel = new JPanel(new MigLayout("insets 0", "[][][][]push[][]", ""));
         buttonPanel.add(btnNew);
         buttonPanel.add(btnEdit);
+        buttonPanel.add(btnDuplicate);
         buttonPanel.add(btnDelete);
         buttonPanel.add(btnShowCache);
         buttonPanel.add(btnRefresh);
-        buttonPanel.add(btnTestConnection);
 
         var topPanel = new JPanel(new MigLayout("insets 0, flowy", "[grow]", "[]4[]"));
         topPanel.add(buttonPanel, "growx");
@@ -185,10 +186,10 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
     private void updateButtonStates() {
         boolean selected = table.getSelectedRowCount() == 1;
         btnEdit.setEnabled(selected);
+        btnDuplicate.setEnabled(selected);
         btnDelete.setEnabled(selected);
         btnShowCache.setEnabled(selected);
         btnRefresh.setEnabled(selected);
-        btnTestConnection.setEnabled(selected);
     }
 
     private CacheDefinition getSelectedDefinition() {
@@ -251,6 +252,38 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         }
     }
 
+    private void duplicateDefinition() {
+        var selected = getSelectedDefinition();
+        if (selected == null) return;
+
+        var copy = selected.copyWithoutId();
+        copy.setName("Copy of " + selected.getName());
+
+        var dialog = new CacheDefinitionDialog(
+                PlatformUI.MIRTH_FRAME, copy, "Duplicate Cache Definition");
+        dialog.setVisible(true);
+        if (dialog.isSaved()) {
+            new SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() throws Exception {
+                    getServlet().createCacheDefinition(dialog.getDefinition());
+                    return null;
+                }
+
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        doRefresh();
+                    } catch (Exception e) {
+                        PlatformUI.MIRTH_FRAME.alertThrowable(
+                                PlatformUI.MIRTH_FRAME, e, "Failed to create cache definition");
+                    }
+                }
+            }.execute();
+        }
+    }
+
     private void deleteDefinition() {
         var selected = getSelectedDefinition();
         if (selected == null) return;
@@ -295,7 +328,14 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
                 try {
                     var snapshot = get();
                     var dialog = new CacheInspectorDialog(
-                            PlatformUI.MIRTH_FRAME, selected.getName(), snapshot);
+                            PlatformUI.MIRTH_FRAME, selected.getName(), snapshot,
+                            () -> {
+                                try {
+                                    return getServlet().getCacheSnapshot(selected.getId());
+                                } catch (Exception ex) {
+                                    throw new RuntimeException(ex);
+                                }
+                            });
                     dialog.setVisible(true);
                 } catch (Exception e) {
                     PlatformUI.MIRTH_FRAME.alertThrowable(
@@ -326,30 +366,6 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
                 } catch (Exception e) {
                     PlatformUI.MIRTH_FRAME.alertThrowable(
                             PlatformUI.MIRTH_FRAME, e, "Failed to refresh cache");
-                }
-            }
-        }.execute();
-    }
-
-    private void testConnection() {
-        var selected = getSelectedDefinition();
-        if (selected == null) return;
-
-        new SwingWorker<String, Void>() {
-            @Override
-            protected String doInBackground() throws Exception {
-                return getServlet().testConnection(selected.getId());
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    var result = get();
-                    JOptionPane.showMessageDialog(CacheSettingsPanel.this,
-                            result, "Connection Test", JOptionPane.INFORMATION_MESSAGE);
-                } catch (Exception e) {
-                    PlatformUI.MIRTH_FRAME.alertThrowable(
-                            PlatformUI.MIRTH_FRAME, e, "Connection test failed");
                 }
             }
         }.execute();

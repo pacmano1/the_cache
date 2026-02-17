@@ -6,7 +6,6 @@ CREATE TABLE cache_definition (
     url                         VARCHAR2(1024) NOT NULL,
     username                    VARCHAR2(255),
     password                    VARCHAR2(1024),
-    use_javascript              NUMBER(1) DEFAULT 0 NOT NULL,
     query                       CLOB NOT NULL,
     key_column                  VARCHAR2(255),
     value_column                VARCHAR2(255),

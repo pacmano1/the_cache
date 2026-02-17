@@ -17,7 +17,6 @@
         <result property="url" column="url" javaType="String" />
         <result property="username" column="username" javaType="String" />
         <result property="password" column="password" javaType="String" />
-        <result property="useJavaScript" column="use_javascript" javaType="Boolean" />
         <result property="query" column="query" javaType="String" />
         <result property="keyColumn" column="key_column" javaType="String" />
         <result property="valueColumn" column="value_column" javaType="String" />
@@ -30,12 +29,12 @@
     <insert id="insert" parameterType="map">
         INSERT INTO cache_definition (
             id, name, enabled,
-            driver, url, username, password, use_javascript, query,
+            driver, url, username, password, query,
             key_column, value_column, max_size, eviction_duration_minutes,
             created_at, updated_at
         ) VALUES (
             #{id}, #{name}, #{enabled},
-            #{driver}, #{url}, #{username}, #{password}, #{useJavaScript}, #{query},
+            #{driver}, #{url}, #{username}, #{password}, #{query},
             #{keyColumn}, #{valueColumn}, #{maxSize}, #{evictionDurationMinutes},
             #{createdAt}, #{updatedAt}
         )
@@ -49,7 +48,6 @@
             url = #{url},
             username = #{username},
             password = #{password},
-            use_javascript = #{useJavaScript},
             query = #{query},
             key_column = #{keyColumn},
             value_column = #{valueColumn},
@@ -65,7 +63,7 @@
 
     <select id="getById" parameterType="String" resultMap="cacheDefinitionResult">
         SELECT id, name, enabled,
-               driver, url, username, password, use_javascript, query,
+               driver, url, username, password, query,
                key_column, value_column, max_size, eviction_duration_minutes
         FROM cache_definition
         WHERE id = #{value}
@@ -73,7 +71,7 @@
 
     <select id="getAll" resultMap="cacheDefinitionResult">
         SELECT id, name, enabled,
-               driver, url, username, password, use_javascript, query,
+               driver, url, username, password, query,
                key_column, value_column, max_size, eviction_duration_minutes
         FROM cache_definition
         ORDER BY name
@@ -81,7 +79,7 @@
 
     <select id="getByName" parameterType="String" resultMap="cacheDefinitionResult">
         SELECT id, name, enabled,
-               driver, url, username, password, use_javascript, query,
+               driver, url, username, password, query,
                key_column, value_column, max_size, eviction_duration_minutes
         FROM cache_definition
         WHERE name = #{value}

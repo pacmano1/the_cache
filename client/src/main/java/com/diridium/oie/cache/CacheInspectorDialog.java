@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.function.Supplier;
 
 import javax.swing.AbstractAction;
 import javax.swing.JButton;
@@ -24,6 +25,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
+import javax.swing.SwingWorker;
 import javax.swing.table.AbstractTableModel;
 
 import com.mirth.connect.client.ui.components.MirthTable;
@@ -41,13 +43,22 @@ public class CacheInspectorDialog extends JDialog {
 
     private static final int VALUE_TRUNCATE_LENGTH = 100;
 
-    public CacheInspectorDialog(JFrame parent, String cacheName, CacheSnapshot snapshot) {
+    private final Supplier<CacheSnapshot> snapshotSupplier;
+    private JPanel statsPanel;
+    private JScrollPane tableScrollPane;
+
+    public CacheInspectorDialog(JFrame parent, String cacheName,
+                                CacheSnapshot snapshot, Supplier<CacheSnapshot> snapshotSupplier) {
         super(parent, "Cache Inspector: \"" + cacheName + "\"", true);
+        this.snapshotSupplier = snapshotSupplier;
 
         setLayout(new BorderLayout(0, 8));
 
-        add(buildStatsPanel(snapshot.getStatistics()), BorderLayout.NORTH);
-        add(new JScrollPane(buildEntriesTable(snapshot.getEntries())), BorderLayout.CENTER);
+        statsPanel = buildStatsPanel(snapshot.getStatistics());
+        tableScrollPane = new JScrollPane(buildEntriesTable(snapshot.getEntries()));
+
+        add(statsPanel, BorderLayout.NORTH);
+        add(tableScrollPane, BorderLayout.CENTER);
         add(buildBottomPanel(cacheName), BorderLayout.SOUTH);
 
         setSize(700, 500);
@@ -64,12 +75,49 @@ public class CacheInspectorDialog extends JDialog {
         });
     }
 
+    private void refreshSnapshot(JButton refreshButton) {
+        refreshButton.setEnabled(false);
+        refreshButton.setText("Refreshing...");
+
+        new SwingWorker<CacheSnapshot, Void>() {
+            @Override
+            protected CacheSnapshot doInBackground() throws Exception {
+                return snapshotSupplier.get();
+            }
+
+            @Override
+            protected void done() {
+                refreshButton.setEnabled(true);
+                refreshButton.setText("Refresh");
+                try {
+                    var snapshot = get();
+
+                    remove(statsPanel);
+                    remove(tableScrollPane);
+
+                    statsPanel = buildStatsPanel(snapshot.getStatistics());
+                    tableScrollPane = new JScrollPane(buildEntriesTable(snapshot.getEntries()));
+
+                    add(statsPanel, BorderLayout.NORTH);
+                    add(tableScrollPane, BorderLayout.CENTER);
+                    revalidate();
+                    repaint();
+                } catch (Exception e) {
+                    javax.swing.JOptionPane.showMessageDialog(CacheInspectorDialog.this,
+                            "Failed to refresh: " + e.getMessage(),
+                            "Refresh Error", javax.swing.JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
     private JPanel buildStatsPanel(CacheStatistics stats) {
         var nf = NumberFormat.getIntegerInstance();
         var pf = NumberFormat.getPercentInstance();
         pf.setMaximumFractionDigits(1);
 
         var avgLoadMs = stats.getAverageLoadPenaltyNanos() / 1_000_000.0;
+        var totalLoadMs = stats.getTotalLoadTimeNanos() / 1_000_000.0;
 
         var panel = new JPanel(new MigLayout("insets 8", "[][80]20[][80]20[][80]", "[]8[]"));
 
@@ -85,7 +133,12 @@ public class CacheInspectorDialog extends JDialog {
         panel.add(new JLabel("Misses:"));
         panel.add(new JLabel(nf.format(stats.getMissCount())));
         panel.add(new JLabel("Evictions:"));
-        panel.add(new JLabel(nf.format(stats.getEvictionCount())));
+        panel.add(new JLabel(nf.format(stats.getEvictionCount())), "wrap");
+
+        panel.add(new JLabel("Total DB Time:"));
+        var totalLoadLabel = new JLabel(formatDuration(totalLoadMs));
+        totalLoadLabel.setToolTipText("Cumulative time spent waiting on database loads (cache misses only)");
+        panel.add(totalLoadLabel, "span 5");
 
         return panel;
     }
@@ -124,9 +177,12 @@ public class CacheInspectorDialog extends JDialog {
         usageHint.setFont(new java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, usageHint.getFont().getSize()));
         panel.add(usageHint, BorderLayout.WEST);
 
+        var refreshButton = new JButton("Refresh");
+        refreshButton.addActionListener(e -> refreshSnapshot(refreshButton));
         var closeButton = new JButton("Close");
         closeButton.addActionListener(e -> dispose());
         var buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.add(refreshButton);
         buttonPanel.add(closeButton);
 
         panel.add(buttonPanel, BorderLayout.EAST);
@@ -141,6 +197,13 @@ public class CacheInspectorDialog extends JDialog {
         return value.substring(0, VALUE_TRUNCATE_LENGTH) + "...";
     }
 
+    private static String formatDuration(double millis) {
+        if (millis < 1_000) return String.format("%.0f ms", millis);
+        if (millis < 60_000) return String.format("%.1f s", millis / 1_000);
+        if (millis < 3_600_000) return String.format("%.1f min", millis / 60_000);
+        return String.format("%.1f hr", millis / 3_600_000);
+    }
+
     private static String formatTimestamp(long millis) {
         if (millis == 0) return "-";
         return TIMESTAMP_FORMAT.format(Instant.ofEpochMilli(millis));
@@ -148,7 +211,7 @@ public class CacheInspectorDialog extends JDialog {
 
     private static class EntryTableModel extends AbstractTableModel {
 
-        private static final String[] COLUMNS = {"Key", "Value", "Loaded At"};
+        private static final String[] COLUMNS = {"Key", "Value", "Loaded At", "Hits"};
         private final List<CacheEntry> entries;
 
         EntryTableModel(List<CacheEntry> entries) {
@@ -177,8 +240,15 @@ public class CacheInspectorDialog extends JDialog {
                 case 0 -> entry.getKey();
                 case 1 -> truncateValue(entry.getValue());
                 case 2 -> formatTimestamp(entry.getLoadedAtMillis());
+                case 3 -> entry.getHitCount();
                 default -> null;
             };
+        }
+
+        @Override
+        public Class<?> getColumnClass(int columnIndex) {
+            if (columnIndex == 3) return Long.class;
+            return String.class;
         }
 
         @Override

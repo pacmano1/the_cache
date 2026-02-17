@@ -7,7 +7,6 @@ CREATE TABLE cache_definition (
     url                         NVARCHAR(1024) NOT NULL,
     username                    NVARCHAR(255),
     password                    NVARCHAR(1024),
-    use_javascript              BIT DEFAULT 0 NOT NULL,
     query                       NVARCHAR(MAX) NOT NULL,
     key_column                  NVARCHAR(255),
     value_column                NVARCHAR(255),

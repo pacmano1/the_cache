@@ -27,10 +27,9 @@ public class CacheDefinition implements Serializable {
     private String password;
 
     // Query configuration
-    private boolean useJavaScript;
-    private String query;       // parameterized SQL or JavaScript (when useJavaScript is true)
-    private String keyColumn;   // SQL mode only — which result column is the value
-    private String valueColumn; // SQL mode only — which result column is the value
+    private String query;       // parameterized SQL, e.g. SELECT config FROM facilities WHERE site_code = ?
+    private String keyColumn;   // which result column is the cache key
+    private String valueColumn; // which result column is the cache value
 
     // Guava cache settings
     private long maxSize;
@@ -95,14 +94,6 @@ public class CacheDefinition implements Serializable {
         this.password = password;
     }
 
-    public boolean isUseJavaScript() {
-        return useJavaScript;
-    }
-
-    public void setUseJavaScript(boolean useJavaScript) {
-        this.useJavaScript = useJavaScript;
-    }
-
     public String getQuery() {
         return query;
     }
@@ -141,5 +132,22 @@ public class CacheDefinition implements Serializable {
 
     public void setEvictionDurationMinutes(long evictionDurationMinutes) {
         this.evictionDurationMinutes = evictionDurationMinutes;
+    }
+
+    /** Returns a copy of this definition with all fields except {@code id} (left null). */
+    public CacheDefinition copyWithoutId() {
+        var copy = new CacheDefinition();
+        copy.setName(name);
+        copy.setEnabled(enabled);
+        copy.setDriver(driver);
+        copy.setUrl(url);
+        copy.setUsername(username);
+        copy.setPassword(password);
+        copy.setQuery(query);
+        copy.setKeyColumn(keyColumn);
+        copy.setValueColumn(valueColumn);
+        copy.setMaxSize(maxSize);
+        copy.setEvictionDurationMinutes(evictionDurationMinutes);
+        return copy;
     }
 }

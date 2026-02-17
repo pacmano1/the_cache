@@ -95,7 +95,6 @@ public class CacheDefinitionRepository {
         params.put("url", def.getUrl());
         params.put("username", def.getUsername());
         params.put("password", def.getPassword());
-        params.put("useJavaScript", def.isUseJavaScript());
         params.put("query", def.getQuery());
         params.put("keyColumn", def.getKeyColumn());
         params.put("valueColumn", def.getValueColumn());
@@ -117,10 +116,6 @@ public class CacheDefinitionRepository {
         def.setUrl((String) row.get("url"));
         def.setUsername((String) row.get("username"));
         def.setPassword((String) row.get("password"));
-
-        var useJsVal = row.get("useJavaScript");
-        def.setUseJavaScript(Boolean.TRUE.equals(useJsVal)
-                || (useJsVal instanceof Number n && n.intValue() != 0));
 
         def.setQuery((String) row.get("query"));
         def.setKeyColumn((String) row.get("keyColumn"));

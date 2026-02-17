@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -33,6 +34,7 @@ public class CacheManager {
     private final ConcurrentHashMap<String, LoadingCache<String, String>> caches = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CacheDefinition> definitions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> loadTimestamps = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ConcurrentHashMap<String, LongAdder>> hitCounts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> nameToId = new ConcurrentHashMap<>();
 
     public static synchronized CacheManager getInstance() {
@@ -77,6 +79,7 @@ public class CacheManager {
         caches.put(definition.getId(), cache);
         definitions.put(definition.getId(), definition);
         loadTimestamps.put(definition.getId(), timestamps);
+        hitCounts.put(definition.getId(), new ConcurrentHashMap<>());
         nameToId.put(definition.getName(), definition.getId());
         log.info("Registered cache '{}'", definition.getName());
     }
@@ -94,6 +97,7 @@ public class CacheManager {
             cache.invalidateAll();
         }
         loadTimestamps.remove(definitionId);
+        hitCounts.remove(definitionId);
     }
 
     /**
@@ -116,9 +120,12 @@ public class CacheManager {
             throw new IllegalArgumentException("No cache registered for definition: " + definitionId);
         }
         try {
-            return cache.get(key);
+            var result = cache.get(key);
+            incrementHitCount(definitionId, key);
+            return result;
         } catch (CacheLoader.InvalidCacheLoadException e) {
             // Guava throws this when CacheLoader returns null — means key not found
+            incrementHitCount(definitionId, key);
             return null;
         }
     }
@@ -189,11 +196,14 @@ public class CacheManager {
 
         var cache = caches.get(definitionId);
         var timestamps = loadTimestamps.getOrDefault(definitionId, new ConcurrentHashMap<>());
+        var hits = hitCounts.getOrDefault(definitionId, new ConcurrentHashMap<>());
         var entries = new ArrayList<CacheEntry>();
 
         for (var entry : cache.asMap().entrySet()) {
             var loadedAt = timestamps.getOrDefault(entry.getKey(), 0L);
-            entries.add(new CacheEntry(entry.getKey(), entry.getValue(), loadedAt));
+            var adder = hits.get(entry.getKey());
+            var hitCount = adder != null ? adder.sum() : 0L;
+            entries.add(new CacheEntry(entry.getKey(), entry.getValue(), loadedAt, hitCount));
         }
 
         return new CacheSnapshot(stats, entries);
@@ -221,8 +231,32 @@ public class CacheManager {
             stmt.setString(1, sampleKey);
 
             rs = stmt.executeQuery();
+
+            // Validate that configured columns exist in the result set
+            var meta = rs.getMetaData();
+            var columnNames = new ArrayList<String>();
+            for (int i = 1; i <= meta.getColumnCount(); i++) {
+                columnNames.add(meta.getColumnLabel(i));
+            }
+
+            var missing = new ArrayList<String>();
+            if (definition.getKeyColumn() != null && !definition.getKeyColumn().isEmpty()
+                    && columnNames.stream().noneMatch(c -> c.equalsIgnoreCase(definition.getKeyColumn()))) {
+                missing.add("Key Column '" + definition.getKeyColumn() + "'");
+            }
+            if (definition.getValueColumn() != null && !definition.getValueColumn().isEmpty()
+                    && columnNames.stream().noneMatch(c -> c.equalsIgnoreCase(definition.getValueColumn()))) {
+                missing.add("Value Column '" + definition.getValueColumn() + "'");
+            }
+            if (!missing.isEmpty()) {
+                return String.join(" and ", missing)
+                        + " not found in result set. Available columns: "
+                        + String.join(", ", columnNames);
+            }
+
             if (rs.next()) {
-                return "Result: " + rs.getString(definition.getValueColumn());
+                return "Key: " + rs.getString(definition.getKeyColumn())
+                        + "\nValue: " + rs.getString(definition.getValueColumn());
             }
             return "No rows returned for key: " + sampleKey;
         } catch (Exception e) {
@@ -267,7 +301,15 @@ public class CacheManager {
         caches.clear();
         definitions.clear();
         loadTimestamps.clear();
+        hitCounts.clear();
         nameToId.clear();
+    }
+
+    private void incrementHitCount(String definitionId, String key) {
+        var counters = hitCounts.get(definitionId);
+        if (counters != null) {
+            counters.computeIfAbsent(key, k -> new LongAdder()).increment();
+        }
     }
 
     /**

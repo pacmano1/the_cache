@@ -13,19 +13,21 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 @XStreamAlias("cacheEntry")
 public class CacheEntry implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     private String key;
     private String value;
     private long loadedAtMillis;
+    private long hitCount;
 
     public CacheEntry() {
     }
 
-    public CacheEntry(String key, String value, long loadedAtMillis) {
+    public CacheEntry(String key, String value, long loadedAtMillis, long hitCount) {
         this.key = key;
         this.value = value;
         this.loadedAtMillis = loadedAtMillis;
+        this.hitCount = hitCount;
     }
 
     public String getKey() {
@@ -50,5 +52,13 @@ public class CacheEntry implements Serializable {
 
     public void setLoadedAtMillis(long loadedAtMillis) {
         this.loadedAtMillis = loadedAtMillis;
+    }
+
+    public long getHitCount() {
+        return hitCount;
+    }
+
+    public void setHitCount(long hitCount) {
+        this.hitCount = hitCount;
     }
 }

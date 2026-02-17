@@ -39,7 +39,7 @@ Created via admin UI OR programmatically through the REST API. Each definition i
 
 - **Name** — the key engineers reference in channel code
 - **Database connection** — driver, URL, username, password (per cache)
-- **Parameterized query** — e.g., `SELECT config FROM facilities WHERE site_code = ?`
+- **Parameterized SQL query** — e.g., `SELECT config FROM facilities WHERE site_code = ?`
 - **Key column / value column** — which result columns map to cache key and value
 - **Max size** — Guava `maximumSize`
 - **Eviction duration** — Guava `expireAfterAccess` time
@@ -56,7 +56,7 @@ Example: A facility config cache returns a JSON blob per site code. The channel 
 
 A `CacheLookup` facade is registered in `globalMap` on startup, so channel code can look up cached values:
 
-```javascript
+```java
 $g('cache').lookup('facility-config', key)
 ```
 

@@ -178,6 +178,27 @@ class CacheManagerTest {
                 cacheManager.getByName("nonexistent-name", "key"));
     }
 
+    @Test
+    void snapshot_hitCountZeroForFreshCache() {
+        var def = createDefinition("hitcount-fresh");
+        cacheManager.registerCache(def);
+
+        var snapshot = cacheManager.getSnapshot(def.getId());
+        assertNotNull(snapshot);
+        // No entries loaded yet → no hit counts to verify
+        assertTrue(snapshot.getEntries().isEmpty());
+    }
+
+    @Test
+    void unregisterCache_clearsHitCounts() {
+        var def = createDefinition("hitcount-unregister");
+        cacheManager.registerCache(def);
+        cacheManager.unregisterCache(def.getId());
+
+        // After unregister, snapshot is null — hit counts are gone
+        assertNull(cacheManager.getSnapshot(def.getId()));
+    }
+
     private CacheDefinition createDefinition(String name) {
         var def = new CacheDefinition();
         def.setId(java.util.UUID.randomUUID().toString());
