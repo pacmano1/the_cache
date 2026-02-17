@@ -1,0 +1,45 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (c) 2026 Diridium <https://diridium.com> */
+
+package com.diridium.oie.cache;
+
+import java.io.Serializable;
+import java.util.List;
+
+import com.thoughtworks.xstream.annotations.XStreamAlias;
+
+/**
+ * Point-in-time snapshot of a cache: statistics plus all current entries.
+ */
+@XStreamAlias("cacheSnapshot")
+public class CacheSnapshot implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private CacheStatistics statistics;
+    private List<CacheEntry> entries;
+
+    public CacheSnapshot() {
+    }
+
+    public CacheSnapshot(CacheStatistics statistics, List<CacheEntry> entries) {
+        this.statistics = statistics;
+        this.entries = entries;
+    }
+
+    public CacheStatistics getStatistics() {
+        return statistics;
+    }
+
+    public void setStatistics(CacheStatistics statistics) {
+        this.statistics = statistics;
+    }
+
+    public List<CacheEntry> getEntries() {
+        return entries;
+    }
+
+    public void setEntries(List<CacheEntry> entries) {
+        this.entries = entries;
+    }
+}

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<!-- Copyright (c) 2026 Diridium <https://diridium.com> -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.diridium</groupId>
+    <artifactId>oie-cache-manager</artifactId>
+    <version>${revision}</version>
+
+    <name>OIE Cache Manager</name>
+    <packaging>pom</packaging>
+
+    <properties>
+        <revision>1.0.0</revision>
+
+        <plugin.supported.mc.versions>${mc.version}</plugin.supported.mc.versions>
+
+        <mc.version>4.5.2</mc.version>
+        <guava.version>33.4.0-jre</guava.version>
+        <javax-servlet.version>4.0.1</javax-servlet.version>
+        <javax-rs-api.version>2.0.1</javax-rs-api.version>
+        <swagger-annotations.version>2.1.9</swagger-annotations.version>
+        <log4j.version>2.17.2</log4j.version>
+        <slf4j.version>1.7.32</slf4j.version>
+        <commons-lang3.version>3.12.0</commons-lang3.version>
+        <commons-dbutils.version>1.7</commons-dbutils.version>
+        <xstream.version>1.4.20</xstream.version>
+        <mybatis.version>3.5.9</mybatis.version>
+        <miglayout.version>5.3</miglayout.version>
+        <junit5.version>5.10.2</junit5.version>
+        <mockito.version>5.11.0</mockito.version>
+
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Signing disabled by default. Use -Psigning to enable. -->
+        <signing.skip>true</signing.skip>
+    </properties>
+
+    <profiles>
+        <profile>
+            <id>signing</id>
+            <properties>
+                <signing.skip>false</signing.skip>
+                <signing.keystore>NONE</signing.keystore>
+                <signing.storetype>PKCS11</signing.storetype>
+                <signing.providerClass>sun.security.pkcs11.SunPKCS11</signing.providerClass>
+                <signing.providerArg>${user.dir}/yubikey-pkcs11.cfg</signing.providerArg>
+                <signing.alias>Certificate for PIV Authentication</signing.alias>
+                <signing.storepass>${env.YUBIKEY_PIN}</signing.storepass>
+                <signing.certchain>${user.dir}/certchain.pem</signing.certchain>
+                <signing.tsa>http://timestamp.digicert.com</signing.tsa>
+            </properties>
+        </profile>
+    </profiles>
+
+    <organization>
+        <name>Diridium</name>
+        <url>https://diridium.com</url>
+    </organization>
+
+    <repositories>
+        <repository>
+            <id>mirth-libs</id>
+            <url>https://repo.repsy.io/mvn/kpalang/mirthconnect</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.mirth.connect</groupId>
+            <artifactId>mirth-server</artifactId>
+            <version>${mc.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mirth.connect</groupId>
+            <artifactId>donkey-server</artifactId>
+            <version>${mc.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mirth.connect</groupId>
+            <artifactId>mirth-client-core</artifactId>
+            <version>${mc.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>${javax-servlet.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <version>${javax-rs-api.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>${mybatis.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <modules>
+        <module>shared</module>
+        <module>server</module>
+        <module>client</module>
+        <module>package</module>
+    </modules>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.7.0</version>
+                <configuration>
+                    <release>17</release>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Application-Name>OIE Cache Manager</Application-Name>
+                            <url>${project.url}</url>
+                            <authors>Diridium</authors>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
