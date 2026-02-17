@@ -121,24 +121,22 @@ public class CacheInspectorDialog extends JDialog {
 
         var panel = new JPanel(new MigLayout("insets 8", "[][80]20[][80]20[][80]", "[]8[]"));
 
-        panel.add(new JLabel("Entries:"));
-        panel.add(new JLabel(nf.format(stats.getSize())));
-        panel.add(new JLabel("Hit Rate:"));
-        panel.add(new JLabel(pf.format(stats.getHitRate())));
-        panel.add(new JLabel("Avg Load:"));
-        panel.add(new JLabel(String.format("%.1f ms", avgLoadMs)), "wrap");
+        panel.add(tipLabel("Entries:", "Number of key-value pairs currently in the cache"));
+        panel.add(tipLabel(nf.format(stats.getSize()), null));
+        panel.add(tipLabel("Hit Rate:", "Percentage of lookups served from cache without a database call"));
+        panel.add(tipLabel(pf.format(stats.getHitRate()), null));
+        panel.add(tipLabel("Avg Load:", "Average time per database round-trip on a cache miss"));
+        panel.add(tipLabel(String.format("%.1f ms", avgLoadMs), null), "wrap");
 
-        panel.add(new JLabel("Hits:"));
-        panel.add(new JLabel(nf.format(stats.getHitCount())));
-        panel.add(new JLabel("Misses:"));
-        panel.add(new JLabel(nf.format(stats.getMissCount())));
-        panel.add(new JLabel("Evictions:"));
-        panel.add(new JLabel(nf.format(stats.getEvictionCount())), "wrap");
+        panel.add(tipLabel("Hits:", "Lookups served from cache (no database call)"));
+        panel.add(tipLabel(nf.format(stats.getHitCount()), null));
+        panel.add(tipLabel("Misses:", "Lookups that required a database call to load the value"));
+        panel.add(tipLabel(nf.format(stats.getMissCount()), null));
+        panel.add(tipLabel("Evictions:", "Entries removed due to max size or expiration"));
+        panel.add(tipLabel(nf.format(stats.getEvictionCount()), null), "wrap");
 
-        panel.add(new JLabel("Total DB Time:"));
-        var totalLoadLabel = new JLabel(formatDuration(totalLoadMs));
-        totalLoadLabel.setToolTipText("Cumulative time spent waiting on database loads (cache misses only)");
-        panel.add(totalLoadLabel, "span 5");
+        panel.add(tipLabel("Total DB Time:", "Cumulative time spent waiting on database loads (cache misses only)"));
+        panel.add(tipLabel(formatDuration(totalLoadMs), null), "span 5");
 
         return panel;
     }
@@ -189,6 +187,12 @@ public class CacheInspectorDialog extends JDialog {
         getRootPane().setDefaultButton(closeButton);
 
         return panel;
+    }
+
+    private static JLabel tipLabel(String text, String tooltip) {
+        var label = new JLabel(text);
+        if (tooltip != null) label.setToolTipText(tooltip);
+        return label;
     }
 
     private static String truncateValue(String value) {
