@@ -190,9 +190,17 @@ public class CacheInspectorDialog extends JDialog {
     }
 
     private static JLabel tipLabel(String text, String tooltip) {
-        var label = new JLabel(text);
-        if (tooltip != null) label.setToolTipText(tooltip);
-        return label;
+        if (tooltip != null) {
+            var label = new JLabel("<html>" + escapeHtml(text)
+                    + " <span style='color:gray'>?</span></html>");
+            label.setToolTipText(tooltip);
+            return label;
+        }
+        return new JLabel(text);
+    }
+
+    private static String escapeHtml(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     private static String truncateValue(String value) {
