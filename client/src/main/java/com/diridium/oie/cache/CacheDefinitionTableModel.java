@@ -19,8 +19,8 @@ public class CacheDefinitionTableModel extends AbstractTableModel {
     private static final Class<?>[] COLUMN_CLASSES = {String.class, String.class, Long.class, Long.class, String.class, Long.class};
 
     private final List<CacheDefinition> definitions = new ArrayList<>();
-    private Map<String, Long> lookupCounts = new HashMap<>();
-    private Map<String, Long> memoryEstimates = new HashMap<>();
+    private final Map<String, Long> lookupCounts = new HashMap<>();
+    private final Map<String, Long> memoryEstimates = new HashMap<>();
 
     public void setDefinitions(List<CacheDefinition> defs) {
         definitions.clear();
@@ -31,7 +31,10 @@ public class CacheDefinitionTableModel extends AbstractTableModel {
     }
 
     public void setLookupCounts(Map<String, Long> counts) {
-        this.lookupCounts = counts != null ? counts : new HashMap<>();
+        lookupCounts.clear();
+        if (counts != null) {
+            lookupCounts.putAll(counts);
+        }
         fireTableDataChanged();
     }
 
@@ -40,8 +43,14 @@ public class CacheDefinitionTableModel extends AbstractTableModel {
         if (defs != null) {
             definitions.addAll(defs);
         }
-        this.lookupCounts = counts != null ? counts : new HashMap<>();
-        this.memoryEstimates = memory != null ? memory : new HashMap<>();
+        lookupCounts.clear();
+        if (counts != null) {
+            lookupCounts.putAll(counts);
+        }
+        memoryEstimates.clear();
+        if (memory != null) {
+            memoryEstimates.putAll(memory);
+        }
         fireTableDataChanged();
     }
 

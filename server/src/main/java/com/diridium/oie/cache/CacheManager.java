@@ -295,9 +295,18 @@ public class CacheManager {
                         + String.join(", ", columnNames);
             }
 
+            // Use the actual metadata column name for rs.getString() to avoid
+            // case-sensitivity issues on non-compliant JDBC drivers
+            var actualKeyCol = columnNames.stream()
+                    .filter(c -> c.equalsIgnoreCase(definition.getKeyColumn()))
+                    .findFirst().orElse(definition.getKeyColumn());
+            var actualValCol = columnNames.stream()
+                    .filter(c -> c.equalsIgnoreCase(definition.getValueColumn()))
+                    .findFirst().orElse(definition.getValueColumn());
+
             if (rs.next()) {
-                return "Key: " + rs.getString(definition.getKeyColumn())
-                        + "\nValue: " + rs.getString(definition.getValueColumn());
+                return "Key: " + rs.getString(actualKeyCol)
+                        + "\nValue: " + rs.getString(actualValCol);
             }
             return "No rows returned for key: " + sampleKey;
         } catch (Exception e) {
