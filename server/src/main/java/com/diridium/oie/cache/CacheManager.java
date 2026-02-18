@@ -254,11 +254,8 @@ public class CacheManager {
      * Test the parameterized query with a sample key and return a user-friendly result.
      */
     public String testQuery(CacheDefinition definition, String sampleKey) {
-        try {
-            Class.forName(definition.getDriver());
-        } catch (ClassNotFoundException e) {
-            return "Driver not found: " + definition.getDriver();
-        }
+        var driverError = loadDriver(definition.getDriver());
+        if (driverError != null) return driverError;
 
         Connection conn = null;
         PreparedStatement stmt = null;
@@ -295,14 +292,8 @@ public class CacheManager {
                         + String.join(", ", columnNames);
             }
 
-            // Use the actual metadata column name for rs.getString() to avoid
-            // case-sensitivity issues on non-compliant JDBC drivers
-            var actualKeyCol = columnNames.stream()
-                    .filter(c -> c.equalsIgnoreCase(definition.getKeyColumn()))
-                    .findFirst().orElse(definition.getKeyColumn());
-            var actualValCol = columnNames.stream()
-                    .filter(c -> c.equalsIgnoreCase(definition.getValueColumn()))
-                    .findFirst().orElse(definition.getValueColumn());
+            var actualKeyCol = findColumnName(columnNames, definition.getKeyColumn());
+            var actualValCol = findColumnName(columnNames, definition.getValueColumn());
 
             if (rs.next()) {
                 return "Key: " + rs.getString(actualKeyCol)
@@ -312,12 +303,7 @@ public class CacheManager {
         } catch (Exception e) {
             return "Query failed: " + e.getMessage();
         } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (Exception e) { log.debug("Failed to close ResultSet", e); }
-            }
-            if (stmt != null) {
-                try { stmt.close(); } catch (Exception e) { log.debug("Failed to close PreparedStatement", e); }
-            }
+            closeStatementAndResultSet(rs, stmt);
             if (conn != null) {
                 try { conn.close(); } catch (Exception e) { log.error("Failed to close database connection", e); }
             }
@@ -328,11 +314,8 @@ public class CacheManager {
      * Test the JDBC connection for a cache definition.
      */
     public String testConnection(CacheDefinition definition) {
-        try {
-            Class.forName(definition.getDriver());
-        } catch (ClassNotFoundException e) {
-            return "Driver not found: " + definition.getDriver();
-        }
+        var driverError = loadDriver(definition.getDriver());
+        if (driverError != null) return driverError;
 
         try (Connection conn = DriverManager.getConnection(
                 definition.getUrl(), definition.getUsername(), definition.getPassword())) {
@@ -398,12 +381,7 @@ public class CacheManager {
                 }
                 return null;
             } finally {
-                if (rs != null) {
-                    try { rs.close(); } catch (Exception e) { log.debug("Failed to close ResultSet", e); }
-                }
-                if (stmt != null) {
-                    try { stmt.close(); } catch (Exception e) { log.debug("Failed to close PreparedStatement", e); }
-                }
+                closeStatementAndResultSet(rs, stmt);
             }
         } catch (SQLException e) {
             closeConnectionQuietly(definition.getId());
@@ -437,6 +415,30 @@ public class CacheManager {
         connections.put(definition.getId(), conn);
         log.debug("Opened persistent connection for cache '{}'", definition.getName());
         return conn;
+    }
+
+    private static String loadDriver(String driverClassName) {
+        try {
+            Class.forName(driverClassName);
+            return null;
+        } catch (ClassNotFoundException e) {
+            return "Driver not found: " + driverClassName;
+        }
+    }
+
+    private static String findColumnName(List<String> availableColumns, String requestedColumn) {
+        return availableColumns.stream()
+                .filter(c -> c.equalsIgnoreCase(requestedColumn))
+                .findFirst().orElse(requestedColumn);
+    }
+
+    private void closeStatementAndResultSet(ResultSet rs, PreparedStatement stmt) {
+        if (rs != null) {
+            try { rs.close(); } catch (Exception e) { log.debug("Failed to close ResultSet", e); }
+        }
+        if (stmt != null) {
+            try { stmt.close(); } catch (Exception e) { log.debug("Failed to close PreparedStatement", e); }
+        }
     }
 
     /**

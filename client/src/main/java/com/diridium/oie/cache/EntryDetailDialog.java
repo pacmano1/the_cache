@@ -5,16 +5,9 @@ package com.diridium.oie.cache;
 
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.event.ActionEvent;
-import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 
-import javax.swing.AbstractAction;
-import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
@@ -23,7 +16,6 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.KeyStroke;
 
 import net.miginfocom.swing.MigLayout;
 
@@ -33,9 +25,6 @@ import net.miginfocom.swing.MigLayout;
  * right-click toggles word wrap.
  */
 public class EntryDetailDialog extends JDialog {
-
-    private static final DateTimeFormatter TIMESTAMP_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     public EntryDetailDialog(JDialog parent, CacheEntry entry) {
         super(parent, "Entry Detail", true);
@@ -81,8 +70,7 @@ public class EntryDetailDialog extends JDialog {
         panel.add(new JScrollPane(valueArea), "grow, push, wrap");
 
         panel.add(new JLabel("Loaded At:"));
-        var loadedAt = entry.getLoadedAtMillis() == 0 ? "-"
-                : TIMESTAMP_FORMAT.format(Instant.ofEpochMilli(entry.getLoadedAtMillis()));
+        var loadedAt = DialogUtils.formatTimestamp(entry.getLoadedAtMillis());
         panel.add(readOnlyField(loadedAt), "wrap");
 
         panel.add(new JLabel("Hits:"));
@@ -93,14 +81,7 @@ public class EntryDetailDialog extends JDialog {
         setMinimumSize(new Dimension(350, 250));
         setLocationRelativeTo(parent);
 
-        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-                .put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "close");
-        getRootPane().getActionMap().put("close", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                dispose();
-            }
-        });
+        DialogUtils.registerEscapeClose(this);
     }
 
     private static JTextField readOnlyField(String text) {

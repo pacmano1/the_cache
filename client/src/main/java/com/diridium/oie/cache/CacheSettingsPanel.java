@@ -23,7 +23,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.TableRowSorter;
 
-import com.mirth.connect.client.core.ClientException;
 import com.mirth.connect.client.ui.AbstractSettingsPanel;
 import com.mirth.connect.client.ui.PlatformUI;
 import com.mirth.connect.client.ui.components.MirthTable;
@@ -44,7 +43,6 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
     private CacheServletInterface servlet;
     private MirthTable table;
     private CacheDefinitionTableModel tableModel;
-    private JButton btnNew;
     private JButton btnEdit;
     private JButton btnDuplicate;
     private JButton btnDelete;
@@ -95,7 +93,7 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
             public void changedUpdate(DocumentEvent e) { applyFilter(); }
         });
 
-        btnNew = new JButton("New");
+        var btnNew = new JButton("New");
         btnNew.addActionListener(e -> newDefinition());
 
         btnEdit = new JButton("Edit");
@@ -203,28 +201,7 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
     }
 
     private void newDefinition() {
-        var dialog = new CacheDefinitionDialog(PlatformUI.MIRTH_FRAME, null);
-        dialog.setVisible(true);
-        if (dialog.isSaved()) {
-            new SwingWorker<Void, Void>() {
-                @Override
-                protected Void doInBackground() throws Exception {
-                    getServlet().createCacheDefinition(dialog.getDefinition());
-                    return null;
-                }
-
-                @Override
-                protected void done() {
-                    try {
-                        get();
-                        doRefresh();
-                    } catch (Exception e) {
-                        PlatformUI.MIRTH_FRAME.alertThrowable(
-                                PlatformUI.MIRTH_FRAME, e, "Failed to create cache definition");
-                    }
-                }
-            }.execute();
-        }
+        showAndCreateAsync(new CacheDefinitionDialog(PlatformUI.MIRTH_FRAME, null));
     }
 
     private void editDefinition() {
@@ -262,8 +239,11 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         var copy = selected.copyWithoutId();
         copy.setName("Copy of " + selected.getName());
 
-        var dialog = new CacheDefinitionDialog(
-                PlatformUI.MIRTH_FRAME, copy, "Duplicate Cache Definition");
+        showAndCreateAsync(new CacheDefinitionDialog(
+                PlatformUI.MIRTH_FRAME, copy, "Duplicate Cache Definition"));
+    }
+
+    private void showAndCreateAsync(CacheDefinitionDialog dialog) {
         dialog.setVisible(true);
         if (dialog.isSaved()) {
             new SwingWorker<Void, Void>() {

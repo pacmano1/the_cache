@@ -16,9 +16,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.text.NumberFormat;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -55,9 +52,6 @@ import net.miginfocom.swing.MigLayout;
  */
 public class CacheInspectorDialog extends JDialog {
 
-    private static final DateTimeFormatter TIMESTAMP_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
-
     private static final int VALUE_TRUNCATE_LENGTH = 100;
 
     private final Supplier<CacheSnapshot> snapshotSupplier;
@@ -87,14 +81,7 @@ public class CacheInspectorDialog extends JDialog {
         setMinimumSize(new Dimension(550, 400));
         setLocationRelativeTo(parent);
 
-        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-                .put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "close");
-        getRootPane().getActionMap().put("close", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                dispose();
-            }
-        });
+        DialogUtils.registerEscapeClose(this);
     }
 
     private void refreshSnapshot(JButton refreshButton) {
@@ -395,8 +382,7 @@ public class CacheInspectorDialog extends JDialog {
     }
 
     private static String formatTimestamp(long millis) {
-        if (millis == 0) return "-";
-        return TIMESTAMP_FORMAT.format(Instant.ofEpochMilli(millis));
+        return DialogUtils.formatTimestamp(millis);
     }
 
     private static class EntryTableModel extends AbstractTableModel {
@@ -443,11 +429,6 @@ public class CacheInspectorDialog extends JDialog {
         public Class<?> getColumnClass(int columnIndex) {
             if (columnIndex == 3) return Long.class;
             return String.class;
-        }
-
-        @Override
-        public boolean isCellEditable(int rowIndex, int columnIndex) {
-            return false;
         }
     }
 }

@@ -12,15 +12,11 @@ import java.util.stream.Collectors;
 
 import com.mirth.connect.server.util.SqlConfig;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * Data access layer for cache definitions stored in the OIE internal database via MyBatis.
  */
 public class CacheDefinitionRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(CacheDefinitionRepository.class);
     private static final String NAMESPACE = "CacheDefinition";
 
     private static volatile CacheDefinitionRepository instance;

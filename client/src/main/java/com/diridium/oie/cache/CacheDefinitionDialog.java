@@ -7,26 +7,21 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.swing.AbstractAction;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.KeyStroke;
 import javax.swing.SwingWorker;
 
 import com.mirth.connect.client.core.ClientException;
@@ -103,14 +98,7 @@ public class CacheDefinitionDialog extends JDialog {
         setMinimumSize(new Dimension(550, 550));
         setLocationRelativeTo(parent);
 
-        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-                .put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "close");
-        getRootPane().getActionMap().put("close", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                dispose();
-            }
-        });
+        DialogUtils.registerEscapeClose(this);
         getRootPane().setDefaultButton(saveButton);
     }
 
@@ -351,13 +339,18 @@ public class CacheDefinitionDialog extends JDialog {
         urlField.setText(selected.getTemplate());
     }
 
-    private void onTestConnection() {
+    private CacheDefinition buildDefinitionFromFields() {
         var def = new CacheDefinition();
         def.setDriver(driverClassField.getText().trim());
         def.setUrl(urlField.getText().trim());
         def.setUsername(usernameField.getText().trim());
         def.setPassword(new String(passwordField.getPassword()));
         def.setName(nameField.getText().trim());
+        return def;
+    }
+
+    private void onTestConnection() {
+        var def = buildDefinitionFromFields();
 
         testConnectionButton.setEnabled(false);
         testConnectionButton.setText("Testing...");
@@ -393,12 +386,7 @@ public class CacheDefinitionDialog extends JDialog {
             return;
         }
 
-        var def = new CacheDefinition();
-        def.setDriver(driverClassField.getText().trim());
-        def.setUrl(urlField.getText().trim());
-        def.setUsername(usernameField.getText().trim());
-        def.setPassword(new String(passwordField.getPassword()));
-        def.setName(nameField.getText().trim());
+        var def = buildDefinitionFromFields();
         def.setQuery(queryPane.getText().trim());
         def.setKeyColumn(keyColumnField.getText().trim());
         def.setValueColumn(valueColumnField.getText().trim());
