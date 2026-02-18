@@ -32,6 +32,26 @@ public class CacheMigrator extends Migrator {
                 log.warn("Cache definition tables migration may have failed: {}", e.getMessage(), e);
             }
         }
+        addMaxConnectionsColumn();
+    }
+
+    private void addMaxConnectionsColumn() {
+        var type = switch (getDatabaseType()) {
+            case "oracle" -> "NUMBER DEFAULT 5";
+            case "sqlserver" -> "INT DEFAULT 5";
+            default -> "INTEGER DEFAULT 5";
+        };
+        try {
+            executeStatement("ALTER TABLE cache_definition ADD COLUMN max_connections " + type);
+            log.info("Added max_connections column to cache_definition");
+        } catch (Exception e) {
+            var msg = e.getMessage() != null ? e.getMessage().toLowerCase(Locale.ROOT) : "";
+            if (msg.contains("already exist") || msg.contains("duplicate column")) {
+                log.debug("max_connections column already exists, skipping");
+            } else {
+                log.warn("Failed to add max_connections column: {}", e.getMessage(), e);
+            }
+        }
     }
 
     @Override

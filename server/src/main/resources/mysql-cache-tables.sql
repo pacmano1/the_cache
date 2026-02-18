@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS cache_definition (
     value_column                VARCHAR(255),
     max_size                    BIGINT DEFAULT 10000,
     eviction_duration_minutes   BIGINT DEFAULT 60,
+    max_connections             INTEGER DEFAULT 5,
     created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_cache_definition_name (name)

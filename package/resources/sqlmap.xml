@@ -22,6 +22,7 @@
         <result property="valueColumn" column="value_column" javaType="String" />
         <result property="maxSize" column="max_size" javaType="Long" />
         <result property="evictionDurationMinutes" column="eviction_duration_minutes" javaType="Long" />
+        <result property="maxConnections" column="max_connections" javaType="Integer" />
     </resultMap>
 
     <!-- ========== Queries ========== -->
@@ -30,12 +31,12 @@
         INSERT INTO cache_definition (
             id, name, enabled,
             driver, url, username, password, query,
-            key_column, value_column, max_size, eviction_duration_minutes,
+            key_column, value_column, max_size, eviction_duration_minutes, max_connections,
             created_at, updated_at
         ) VALUES (
             #{id}, #{name}, #{enabled},
             #{driver}, #{url}, #{username}, #{password}, #{query},
-            #{keyColumn}, #{valueColumn}, #{maxSize}, #{evictionDurationMinutes},
+            #{keyColumn}, #{valueColumn}, #{maxSize}, #{evictionDurationMinutes}, #{maxConnections},
             #{createdAt}, #{updatedAt}
         )
     </insert>
@@ -53,6 +54,7 @@
             value_column = #{valueColumn},
             max_size = #{maxSize},
             eviction_duration_minutes = #{evictionDurationMinutes},
+            max_connections = #{maxConnections},
             updated_at = #{updatedAt}
         WHERE id = #{id}
     </update>
@@ -64,7 +66,7 @@
     <select id="getById" parameterType="String" resultMap="cacheDefinitionResult">
         SELECT id, name, enabled,
                driver, url, username, password, query,
-               key_column, value_column, max_size, eviction_duration_minutes
+               key_column, value_column, max_size, eviction_duration_minutes, max_connections
         FROM cache_definition
         WHERE id = #{value}
     </select>
@@ -72,7 +74,7 @@
     <select id="getAll" resultMap="cacheDefinitionResult">
         SELECT id, name, enabled,
                driver, url, username, password, query,
-               key_column, value_column, max_size, eviction_duration_minutes
+               key_column, value_column, max_size, eviction_duration_minutes, max_connections
         FROM cache_definition
         ORDER BY name
     </select>
@@ -80,7 +82,7 @@
     <select id="getByName" parameterType="String" resultMap="cacheDefinitionResult">
         SELECT id, name, enabled,
                driver, url, username, password, query,
-               key_column, value_column, max_size, eviction_duration_minutes
+               key_column, value_column, max_size, eviction_duration_minutes, max_connections
         FROM cache_definition
         WHERE name = #{value}
     </select>

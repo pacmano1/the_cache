@@ -96,6 +96,7 @@ public class CacheDefinitionRepository {
         params.put("valueColumn", def.getValueColumn());
         params.put("maxSize", def.getMaxSize());
         params.put("evictionDurationMinutes", def.getEvictionDurationMinutes());
+        params.put("maxConnections", def.getMaxConnections());
         return params;
     }
 
@@ -125,6 +126,11 @@ public class CacheDefinitionRepository {
         var eviction = row.get("evictionDurationMinutes");
         if (eviction instanceof Number n) {
             def.setEvictionDurationMinutes(n.longValue());
+        }
+
+        var maxConn = row.get("maxConnections");
+        if (maxConn instanceof Number n) {
+            def.setMaxConnections(n.intValue());
         }
 
         return def;

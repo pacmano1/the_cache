@@ -11,6 +11,7 @@ CREATE TABLE cache_definition (
     value_column                VARCHAR2(255),
     max_size                    NUMBER DEFAULT 10000,
     eviction_duration_minutes   NUMBER DEFAULT 60,
+    max_connections             NUMBER DEFAULT 5,
     created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )

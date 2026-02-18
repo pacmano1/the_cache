@@ -74,6 +74,7 @@ public class CacheDefinitionDialog extends JDialog {
     // Cache settings
     private MirthTextField maxSizeField;
     private MirthTextField evictionField;
+    private MirthTextField maxConnectionsField;
 
     private JButton saveButton;
     private JButton cancelButton;
@@ -160,6 +161,7 @@ public class CacheDefinitionDialog extends JDialog {
 
         maxSizeField = new MirthTextField();
         evictionField = new MirthTextField();
+        maxConnectionsField = new MirthTextField();
 
         saveButton = new JButton("Save");
         saveButton.addActionListener(e -> onSave());
@@ -219,6 +221,9 @@ public class CacheDefinitionDialog extends JDialog {
         content.add(new JLabel("Eviction (min):"));
         content.add(evictionField, "wrap");
 
+        content.add(new JLabel("Max Connections:"));
+        content.add(maxConnectionsField, "wrap");
+
         var buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttonPanel.add(saveButton);
         buttonPanel.add(cancelButton);
@@ -248,6 +253,7 @@ public class CacheDefinitionDialog extends JDialog {
         if (definition.getValueColumn() != null) valueColumnField.setText(definition.getValueColumn());
         if (definition.getMaxSize() > 0) maxSizeField.setText(String.valueOf(definition.getMaxSize()));
         if (definition.getEvictionDurationMinutes() > 0) evictionField.setText(String.valueOf(definition.getEvictionDurationMinutes()));
+        if (definition.getMaxConnections() > 0) maxConnectionsField.setText(String.valueOf(definition.getMaxConnections()));
     }
 
     // ---- Driver handling ----
@@ -469,6 +475,20 @@ public class CacheDefinitionDialog extends JDialog {
             return;
         }
 
+        int maxConnections;
+        try {
+            maxConnections = maxConnectionsField.getText().trim().isEmpty() ? 5 : Integer.parseInt(maxConnectionsField.getText().trim());
+            if (maxConnections < 1) {
+                JOptionPane.showMessageDialog(this, "Max Connections must be at least 1.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                maxConnectionsField.requestFocus();
+                return;
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Max Connections must be a number.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            maxConnectionsField.requestFocus();
+            return;
+        }
+
         definition.setName(name);
         definition.setEnabled(enabledCheckbox.isSelected());
         definition.setDriver(driverClass);
@@ -480,6 +500,7 @@ public class CacheDefinitionDialog extends JDialog {
         definition.setValueColumn(valueColumnField.getText().trim());
         definition.setMaxSize(maxSize);
         definition.setEvictionDurationMinutes(eviction);
+        definition.setMaxConnections(maxConnections);
 
         saved = true;
         dispose();

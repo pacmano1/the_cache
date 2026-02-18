@@ -14,7 +14,7 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 @XStreamAlias("cacheDefinition")
 public class CacheDefinition implements Serializable {
 
-    private static final long serialVersionUID = 4L;
+    private static final long serialVersionUID = 5L;
 
     private String id;
     private String name;
@@ -34,6 +34,7 @@ public class CacheDefinition implements Serializable {
     // Guava cache settings
     private long maxSize;
     private long evictionDurationMinutes;
+    private int maxConnections = 5;
 
     public CacheDefinition() {
     }
@@ -134,6 +135,14 @@ public class CacheDefinition implements Serializable {
         this.evictionDurationMinutes = evictionDurationMinutes;
     }
 
+    public int getMaxConnections() {
+        return maxConnections;
+    }
+
+    public void setMaxConnections(int maxConnections) {
+        this.maxConnections = maxConnections;
+    }
+
     /** Returns a copy of this definition with all fields except {@code id} (left null). */
     public CacheDefinition copyWithoutId() {
         var copy = new CacheDefinition();
@@ -148,6 +157,7 @@ public class CacheDefinition implements Serializable {
         copy.setValueColumn(valueColumn);
         copy.setMaxSize(maxSize);
         copy.setEvictionDurationMinutes(evictionDurationMinutes);
+        copy.setMaxConnections(maxConnections);
         return copy;
     }
 }

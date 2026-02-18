@@ -7,19 +7,18 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.concurrent.locks.ReentrantLock;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.mirth.connect.server.util.GlobalVariableStore;
+import com.zaxxer.hikari.HikariDataSource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,8 +38,7 @@ public class CacheManager {
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> loadTimestamps = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, LongAdder>> hitCounts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> nameToId = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Connection> connections = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ReentrantLock> connectionLocks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, HikariDataSource> connectionPools = new ConcurrentHashMap<>();
 
     public static CacheManager getInstance() {
         var result = instance;
@@ -94,7 +92,8 @@ public class CacheManager {
         loadTimestamps.put(definition.getId(), timestamps);
         hitCounts.put(definition.getId(), new ConcurrentHashMap<>());
         nameToId.put(definition.getName(), definition.getId());
-        connectionLocks.putIfAbsent(definition.getId(), new ReentrantLock());
+        closePoolQuietly(definition.getId());
+        connectionPools.put(definition.getId(), createPool(definition));
         GlobalVariableStore.getInstance().put(definition.getName(), new CacheLookup(definition.getName()));
         log.info("Registered cache '{}'", definition.getName());
     }
@@ -114,17 +113,7 @@ public class CacheManager {
         }
         loadTimestamps.remove(definitionId);
         hitCounts.remove(definitionId);
-
-        // Acquire lock so we wait for any in-flight query to finish before closing
-        var lock = connectionLocks.remove(definitionId);
-        if (lock != null) {
-            lock.lock();
-            try {
-                closeConnectionQuietly(definitionId);
-            } finally {
-                lock.unlock();
-            }
-        }
+        closePoolQuietly(definitionId);
     }
 
     /**
@@ -148,12 +137,12 @@ public class CacheManager {
         }
         try {
             var result = cache.get(key);
-            incrementHitCount(definitionId, key);
             return result;
         } catch (CacheLoader.InvalidCacheLoadException e) {
             // Guava throws this when CacheLoader returns null — means key not found
-            incrementHitCount(definitionId, key);
             return null;
+        } finally {
+            incrementHitCount(definitionId, key);
         }
     }
 
@@ -330,10 +319,7 @@ public class CacheManager {
     }
 
     private void invalidateAll() {
-        for (var id : connections.keySet()) {
-            closeConnectionQuietly(id);
-        }
-        connectionLocks.clear();
+        connectionPools.keySet().forEach(this::closePoolQuietly);
         caches.values().forEach(LoadingCache::invalidateAll);
         caches.clear();
         definitions.clear();
@@ -352,23 +338,17 @@ public class CacheManager {
     }
 
     /**
-     * Execute the parameterized query against the external database using a persistent connection.
-     * Acquires a per-cache lock so concurrent misses for the same cache are serialized.
-     * On failure, closes the persistent connection so the next call reconnects.
+     * Execute the parameterized query against the external database.
+     * Borrows a connection from the per-cache HikariCP pool and returns it after.
      * Returns null if no row matches (Guava will translate this to InvalidCacheLoadException).
      */
     private String queryExternalDatabase(CacheDefinition definition, String key) throws Exception {
-        Class.forName(definition.getDriver());
-
-        var lock = connectionLocks.get(definition.getId());
-        if (lock == null) {
-            throw new IllegalStateException("No lock for cache: " + definition.getName());
+        var pool = connectionPools.get(definition.getId());
+        if (pool == null) {
+            throw new IllegalStateException("No connection pool for cache: " + definition.getName());
         }
 
-        lock.lock();
-        try {
-            var conn = getOrCreateConnection(definition);
-
+        try (var conn = pool.getConnection()) {
             PreparedStatement stmt = null;
             ResultSet rs = null;
             try {
@@ -383,38 +363,42 @@ public class CacheManager {
             } finally {
                 closeStatementAndResultSet(rs, stmt);
             }
-        } catch (SQLException e) {
-            closeConnectionQuietly(definition.getId());
-            throw e;
-        } finally {
-            lock.unlock();
         }
     }
 
-    /**
-     * Return the persistent connection for a cache, creating or reconnecting as needed.
-     * Must be called while holding the per-cache lock.
-     */
-    private Connection getOrCreateConnection(CacheDefinition definition) throws SQLException {
-        var existing = connections.get(definition.getId());
-        if (existing != null) {
-            try {
-                if (existing.isValid(10)) {
-                    return existing;
-                }
-            } catch (SQLException e) {
-                log.debug("Connection validity check failed for cache '{}'", definition.getName(), e);
-            }
-            // Stale or broken — close and reconnect
-            closeConnectionQuietly(definition.getId());
+    private static HikariDataSource createPool(CacheDefinition definition) {
+        // Pre-register the driver with DriverManager (needed for non-JDBC4 drivers)
+        try {
+            Class.forName(definition.getDriver());
+        } catch (ClassNotFoundException e) {
+            log.warn("JDBC driver class '{}' not found for cache '{}' — will rely on URL auto-detection",
+                    definition.getDriver(), definition.getName());
         }
 
-        var conn = DriverManager.getConnection(
-                definition.getUrl(), definition.getUsername(), definition.getPassword());
-        conn.setAutoCommit(true);
-        connections.put(definition.getId(), conn);
-        log.debug("Opened persistent connection for cache '{}'", definition.getName());
-        return conn;
+        var maxConn = definition.getMaxConnections() > 0 ? definition.getMaxConnections() : 5;
+
+        // Use no-arg constructor for lazy initialization — pool starts on first getConnection(),
+        // not at construction time. This avoids eagerly validating the driver/URL at registration.
+        var ds = new HikariDataSource();
+        ds.setJdbcUrl(definition.getUrl());
+        ds.setUsername(definition.getUsername());
+        ds.setPassword(definition.getPassword());
+        ds.setMaximumPoolSize(maxConn);
+        ds.setMinimumIdle(0);
+        ds.setAutoCommit(true);
+        ds.setPoolName("oie-cache-" + definition.getName());
+        return ds;
+    }
+
+    private void closePoolQuietly(String definitionId) {
+        var pool = connectionPools.remove(definitionId);
+        if (pool != null) {
+            try {
+                pool.close();
+            } catch (Exception e) {
+                log.debug("Failed to close connection pool for cache '{}'", definitionId, e);
+            }
+        }
     }
 
     private static String loadDriver(String driverClassName) {
@@ -441,17 +425,4 @@ public class CacheManager {
         }
     }
 
-    /**
-     * Close and remove the persistent connection for a cache, swallowing any errors.
-     */
-    private void closeConnectionQuietly(String definitionId) {
-        var conn = connections.remove(definitionId);
-        if (conn != null) {
-            try {
-                conn.close();
-            } catch (SQLException e) {
-                log.debug("Failed to close persistent connection for cache '{}'", definitionId, e);
-            }
-        }
-    }
 }

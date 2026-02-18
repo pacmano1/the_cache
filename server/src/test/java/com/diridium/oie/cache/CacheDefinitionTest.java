@@ -25,6 +25,12 @@ class CacheDefinitionTest {
     }
 
     @Test
+    void newDefinition_hasDefaultMaxConnections() {
+        var def = new CacheDefinition();
+        assertEquals(5, def.getMaxConnections());
+    }
+
+    @Test
     void settersAndGetters_roundTrip() {
         var def = new CacheDefinition();
         def.setId("abc-123");
@@ -39,6 +45,7 @@ class CacheDefinitionTest {
         def.setValueColumn("config");
         def.setMaxSize(5000);
         def.setEvictionDurationMinutes(120);
+        def.setMaxConnections(10);
 
         assertEquals("abc-123", def.getId());
         assertEquals("facility-config", def.getName());
@@ -52,6 +59,7 @@ class CacheDefinitionTest {
         assertEquals("config", def.getValueColumn());
         assertEquals(5000, def.getMaxSize());
         assertEquals(120, def.getEvictionDurationMinutes());
+        assertEquals(10, def.getMaxConnections());
     }
 
     @Test
@@ -69,6 +77,7 @@ class CacheDefinitionTest {
         original.setValueColumn("config");
         original.setMaxSize(5000);
         original.setEvictionDurationMinutes(120);
+        original.setMaxConnections(10);
 
         var copy = original.copyWithoutId();
 
@@ -84,5 +93,6 @@ class CacheDefinitionTest {
         assertEquals("config", copy.getValueColumn());
         assertEquals(5000, copy.getMaxSize());
         assertEquals(120, copy.getEvictionDurationMinutes());
+        assertEquals(10, copy.getMaxConnections());
     }
 }

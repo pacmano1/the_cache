@@ -12,6 +12,7 @@ CREATE TABLE cache_definition (
     value_column                NVARCHAR(255),
     max_size                    BIGINT DEFAULT 10000,
     eviction_duration_minutes   BIGINT DEFAULT 60,
+    max_connections             INT DEFAULT 5,
     created_at                  DATETIME2 DEFAULT GETDATE(),
     updated_at                  DATETIME2 DEFAULT GETDATE()
 )
