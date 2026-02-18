@@ -387,7 +387,7 @@ public class CacheInspectorDialog extends JDialog {
 
     private static class EntryTableModel extends AbstractTableModel {
 
-        private static final String[] COLUMNS = {"Key", "Value", "Loaded At", "Hits"};
+        private static final String[] COLUMNS = {"Key", "Value", "Loaded At", "Accesses"};
         private final List<CacheEntry> entries;
 
         EntryTableModel(List<CacheEntry> entries) {
@@ -420,7 +420,7 @@ public class CacheInspectorDialog extends JDialog {
                 case 0 -> entry.getKey();
                 case 1 -> truncateValue(entry.getValue());
                 case 2 -> formatTimestamp(entry.getLoadedAtMillis());
-                case 3 -> entry.getHitCount();
+                case 3 -> entry.getAccessCount();
                 default -> null;
             };
         }

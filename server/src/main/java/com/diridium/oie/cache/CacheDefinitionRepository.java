@@ -10,14 +10,20 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.mirth.connect.server.controllers.ConfigurationController;
 import com.mirth.connect.server.util.SqlConfig;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Data access layer for cache definitions stored in the OIE internal database via MyBatis.
  */
 public class CacheDefinitionRepository {
 
+    private static final Logger log = LoggerFactory.getLogger(CacheDefinitionRepository.class);
     private static final String NAMESPACE = "CacheDefinition";
+    private static final String ENC_PREFIX = "{enc}";
 
     private static volatile CacheDefinitionRepository instance;
 
@@ -90,7 +96,7 @@ public class CacheDefinitionRepository {
         params.put("driver", def.getDriver());
         params.put("url", def.getUrl());
         params.put("username", def.getUsername());
-        params.put("password", def.getPassword());
+        params.put("password", encryptPassword(def.getPassword()));
         params.put("query", def.getQuery());
         params.put("keyColumn", def.getKeyColumn());
         params.put("valueColumn", def.getValueColumn());
@@ -112,7 +118,7 @@ public class CacheDefinitionRepository {
         def.setDriver((String) row.get("driver"));
         def.setUrl((String) row.get("url"));
         def.setUsername((String) row.get("username"));
-        def.setPassword((String) row.get("password"));
+        def.setPassword(decryptPassword((String) row.get("password")));
 
         def.setQuery((String) row.get("query"));
         def.setKeyColumn((String) row.get("keyColumn"));
@@ -134,5 +140,31 @@ public class CacheDefinitionRepository {
         }
 
         return def;
+    }
+
+    private static String encryptPassword(String password) {
+        if (password == null || password.isEmpty() || password.startsWith(ENC_PREFIX)) {
+            return password;
+        }
+        try {
+            var encryptor = ConfigurationController.getInstance().getEncryptor();
+            return ENC_PREFIX + encryptor.encrypt(password);
+        } catch (Exception e) {
+            log.warn("Failed to encrypt password, storing as plaintext: {}", e.getMessage());
+            return password;
+        }
+    }
+
+    private static String decryptPassword(String password) {
+        if (password == null || !password.startsWith(ENC_PREFIX)) {
+            return password;
+        }
+        try {
+            var encryptor = ConfigurationController.getInstance().getEncryptor();
+            return encryptor.decrypt(password.substring(ENC_PREFIX.length()));
+        } catch (Exception e) {
+            log.warn("Failed to decrypt password, returning as-is: {}", e.getMessage());
+            return password;
+        }
     }
 }

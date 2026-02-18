@@ -77,6 +77,12 @@
         </dependency>
         <dependency>
             <groupId>com.mirth.connect</groupId>
+            <artifactId>mirth-crypto</artifactId>
+            <version>${mc.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mirth.connect</groupId>
             <artifactId>donkey-server</artifactId>
             <version>${mc.version}</version>
             <scope>provided</scope>

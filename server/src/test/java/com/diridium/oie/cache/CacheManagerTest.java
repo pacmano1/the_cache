@@ -179,24 +179,38 @@ class CacheManagerTest {
     }
 
     @Test
-    void snapshot_hitCountZeroForFreshCache() {
-        var def = createDefinition("hitcount-fresh");
+    void snapshot_accessCountZeroForFreshCache() {
+        var def = createDefinition("accesscount-fresh");
         cacheManager.registerCache(def);
 
         var snapshot = cacheManager.getSnapshot(def.getId());
         assertNotNull(snapshot);
-        // No entries loaded yet → no hit counts to verify
+        // No entries loaded yet → no access counts to verify
         assertTrue(snapshot.getEntries().isEmpty());
     }
 
     @Test
-    void unregisterCache_clearsHitCounts() {
-        var def = createDefinition("hitcount-unregister");
+    void unregisterCache_clearsAccessCounts() {
+        var def = createDefinition("accesscount-unregister");
         cacheManager.registerCache(def);
         cacheManager.unregisterCache(def.getId());
 
-        // After unregister, snapshot is null — hit counts are gone
+        // After unregister, snapshot is null — access counts are gone
         assertNull(cacheManager.getSnapshot(def.getId()));
+    }
+
+    @Test
+    void registerCache_storesDefensiveCopy() {
+        var def = createDefinition("defensive-copy");
+        cacheManager.registerCache(def);
+
+        // Mutate the original after registration
+        def.setName("mutated-name");
+
+        // Stats should still reflect the original name, not the mutated one
+        var stats = cacheManager.getStatistics(def.getId());
+        assertNotNull(stats);
+        assertEquals("defensive-copy", stats.getName());
     }
 
     private CacheDefinition createDefinition(String name) {

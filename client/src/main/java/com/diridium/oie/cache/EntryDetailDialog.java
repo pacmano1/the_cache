@@ -73,8 +73,8 @@ public class EntryDetailDialog extends JDialog {
         var loadedAt = DialogUtils.formatTimestamp(entry.getLoadedAtMillis());
         panel.add(readOnlyField(loadedAt), "wrap");
 
-        panel.add(new JLabel("Hits:"));
-        panel.add(readOnlyField(String.valueOf(entry.getHitCount())), "wrap");
+        panel.add(new JLabel("Accesses:"));
+        panel.add(readOnlyField(String.valueOf(entry.getAccessCount())), "wrap");
 
         setContentPane(panel);
         setSize(500, 400);

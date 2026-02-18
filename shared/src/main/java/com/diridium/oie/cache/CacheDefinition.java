@@ -143,6 +143,13 @@ public class CacheDefinition implements Serializable {
         this.maxConnections = maxConnections;
     }
 
+    /** Returns a full copy of this definition including the {@code id}. */
+    public CacheDefinition copy() {
+        var copy = copyWithoutId();
+        copy.setId(id);
+        return copy;
+    }
+
     /** Returns a copy of this definition with all fields except {@code id} (left null). */
     public CacheDefinition copyWithoutId() {
         var copy = new CacheDefinition();

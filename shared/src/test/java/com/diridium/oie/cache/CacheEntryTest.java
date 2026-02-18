@@ -31,7 +31,7 @@ class CacheEntryTest {
         assertEquals("KEY", entry.getKey());
         assertEquals("VALUE", entry.getValue());
         assertEquals(12345L, entry.getLoadedAtMillis());
-        assertEquals(42L, entry.getHitCount());
+        assertEquals(42L, entry.getAccessCount());
     }
 
     @Test
@@ -41,13 +41,13 @@ class CacheEntryTest {
         assertNull(entry.getKey());
         assertNull(entry.getValue());
         assertEquals(0L, entry.getLoadedAtMillis());
-        assertEquals(0L, entry.getHitCount());
+        assertEquals(0L, entry.getAccessCount());
     }
 
     @Test
-    void setHitCount_roundTrip() {
+    void setAccessCount_roundTrip() {
         var entry = new CacheEntry();
-        entry.setHitCount(99L);
-        assertEquals(99L, entry.getHitCount());
+        entry.setAccessCount(99L);
+        assertEquals(99L, entry.getAccessCount());
     }
 }

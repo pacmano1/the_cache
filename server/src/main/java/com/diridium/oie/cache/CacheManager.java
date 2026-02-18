@@ -36,7 +36,7 @@ public class CacheManager {
     private final ConcurrentHashMap<String, LoadingCache<String, String>> caches = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CacheDefinition> definitions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> loadTimestamps = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ConcurrentHashMap<String, LongAdder>> hitCounts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ConcurrentHashMap<String, LongAdder>> accessCounts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> nameToId = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, HikariDataSource> connectionPools = new ConcurrentHashMap<>();
 
@@ -64,13 +64,18 @@ public class CacheManager {
 
     /**
      * Build (or rebuild) a Guava LoadingCache for the given definition.
+     * Takes a defensive copy so the caller cannot mutate the stored definition.
+     * Constructs the cache and connection pool before touching shared state,
+     * so a pool creation failure leaves the maps unchanged.
      */
     public void registerCache(CacheDefinition definition) {
+        var def = definition.copy();
+
         var timestamps = new ConcurrentHashMap<String, Long>();
         var loader = new CacheLoader<String, String>() {
             @Override
             public String load(String key) throws Exception {
-                var result = queryExternalDatabase(definition, key);
+                var result = queryExternalDatabase(def, key);
                 timestamps.put(key, System.currentTimeMillis());
                 return result;
             }
@@ -79,23 +84,28 @@ public class CacheManager {
         var builder = CacheBuilder.newBuilder()
                 .recordStats();
 
-        if (definition.getMaxSize() > 0) {
-            builder.maximumSize(definition.getMaxSize());
+        if (def.getMaxSize() > 0) {
+            builder.maximumSize(def.getMaxSize());
         }
-        if (definition.getEvictionDurationMinutes() > 0) {
-            builder.expireAfterAccess(definition.getEvictionDurationMinutes(), TimeUnit.MINUTES);
+        if (def.getEvictionDurationMinutes() > 0) {
+            builder.expireAfterAccess(def.getEvictionDurationMinutes(), TimeUnit.MINUTES);
         }
 
         var cache = builder.build(loader);
-        caches.put(definition.getId(), cache);
-        definitions.put(definition.getId(), definition);
-        loadTimestamps.put(definition.getId(), timestamps);
-        hitCounts.put(definition.getId(), new ConcurrentHashMap<>());
-        nameToId.put(definition.getName(), definition.getId());
-        closePoolQuietly(definition.getId());
-        connectionPools.put(definition.getId(), createPool(definition));
-        GlobalVariableStore.getInstance().put(definition.getName(), new CacheLookup(definition.getName()));
-        log.info("Registered cache '{}'", definition.getName());
+
+        // Create pool before mutating shared state — this is the only call that can throw
+        var pool = createPool(def);
+
+        // All local construction succeeded — now atomically update shared maps
+        closePoolQuietly(def.getId());
+        caches.put(def.getId(), cache);
+        definitions.put(def.getId(), def);
+        loadTimestamps.put(def.getId(), timestamps);
+        accessCounts.put(def.getId(), new ConcurrentHashMap<>());
+        nameToId.put(def.getName(), def.getId());
+        connectionPools.put(def.getId(), pool);
+        GlobalVariableStore.getInstance().put(def.getName(), new CacheLookup(def.getName()));
+        log.info("Registered cache '{}'", def.getName());
     }
 
     /**
@@ -112,7 +122,7 @@ public class CacheManager {
             cache.invalidateAll();
         }
         loadTimestamps.remove(definitionId);
-        hitCounts.remove(definitionId);
+        accessCounts.remove(definitionId);
         closePoolQuietly(definitionId);
     }
 
@@ -142,7 +152,7 @@ public class CacheManager {
             // Guava throws this when CacheLoader returns null — means key not found
             return null;
         } finally {
-            incrementHitCount(definitionId, key);
+            incrementAccessCount(definitionId, key);
         }
     }
 
@@ -226,14 +236,14 @@ public class CacheManager {
 
         var cache = caches.get(definitionId);
         var timestamps = loadTimestamps.getOrDefault(definitionId, new ConcurrentHashMap<>());
-        var hits = hitCounts.getOrDefault(definitionId, new ConcurrentHashMap<>());
+        var counts = accessCounts.getOrDefault(definitionId, new ConcurrentHashMap<>());
         var entries = new ArrayList<CacheEntry>();
 
         for (var entry : cache.asMap().entrySet()) {
             var loadedAt = timestamps.getOrDefault(entry.getKey(), 0L);
-            var adder = hits.get(entry.getKey());
-            var hitCount = adder != null ? adder.sum() : 0L;
-            entries.add(new CacheEntry(entry.getKey(), entry.getValue(), loadedAt, hitCount));
+            var adder = counts.get(entry.getKey());
+            var accessCount = adder != null ? adder.sum() : 0L;
+            entries.add(new CacheEntry(entry.getKey(), entry.getValue(), loadedAt, accessCount));
         }
 
         return new CacheSnapshot(stats, entries);
@@ -324,14 +334,14 @@ public class CacheManager {
         caches.clear();
         definitions.clear();
         loadTimestamps.clear();
-        hitCounts.clear();
+        accessCounts.clear();
         var globalStore = GlobalVariableStore.getInstance();
         nameToId.keySet().forEach(globalStore::remove);
         nameToId.clear();
     }
 
-    private void incrementHitCount(String definitionId, String key) {
-        var counters = hitCounts.get(definitionId);
+    private void incrementAccessCount(String definitionId, String key) {
+        var counters = accessCounts.get(definitionId);
         if (counters != null) {
             counters.computeIfAbsent(key, k -> new LongAdder()).increment();
         }
@@ -357,7 +367,14 @@ public class CacheManager {
 
                 rs = stmt.executeQuery();
                 if (rs.next()) {
-                    return rs.getString(definition.getValueColumn());
+                    // Resolve column name case-insensitively (some DBs return uppercase labels)
+                    var meta = rs.getMetaData();
+                    var columnNames = new ArrayList<String>();
+                    for (int i = 1; i <= meta.getColumnCount(); i++) {
+                        columnNames.add(meta.getColumnLabel(i));
+                    }
+                    var actualValCol = findColumnName(columnNames, definition.getValueColumn());
+                    return rs.getString(actualValCol);
                 }
                 return null;
             } finally {

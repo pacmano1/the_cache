@@ -36,13 +36,14 @@ public class CacheMigrator extends Migrator {
     }
 
     private void addMaxConnectionsColumn() {
-        var type = switch (getDatabaseType()) {
-            case "oracle" -> "NUMBER DEFAULT 5";
-            case "sqlserver" -> "INT DEFAULT 5";
-            default -> "INTEGER DEFAULT 5";
+        // Oracle and SQL Server use ADD (no COLUMN keyword); Postgres/MySQL/Derby use ADD COLUMN
+        var sql = switch (getDatabaseType()) {
+            case "oracle" -> "ALTER TABLE cache_definition ADD max_connections NUMBER DEFAULT 5";
+            case "sqlserver" -> "ALTER TABLE cache_definition ADD max_connections INT DEFAULT 5";
+            default -> "ALTER TABLE cache_definition ADD COLUMN max_connections INTEGER DEFAULT 5";
         };
         try {
-            executeStatement("ALTER TABLE cache_definition ADD COLUMN max_connections " + type);
+            executeStatement(sql);
             log.info("Added max_connections column to cache_definition");
         } catch (Exception e) {
             var msg = e.getMessage() != null ? e.getMessage().toLowerCase(Locale.ROOT) : "";
