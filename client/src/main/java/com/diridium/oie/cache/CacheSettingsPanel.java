@@ -334,7 +334,7 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
 
         var confirm = JOptionPane.showConfirmDialog(this,
                 "This will re-fetch all cached entries for '" + selected.getName()
-                        + "' from the database in the background. Continue?",
+                        + "' from the database. Continue?",
                 "Refresh Cache", JOptionPane.OK_CANCEL_OPTION);
         if (confirm != JOptionPane.OK_OPTION) return;
 
@@ -349,17 +349,15 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
             protected void done() {
                 try {
                     get();
+                    JOptionPane.showMessageDialog(CacheSettingsPanel.this,
+                            "Refresh completed for '" + selected.getName() + "'.",
+                            "Refresh Cache", JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception e) {
                     PlatformUI.MIRTH_FRAME.alertThrowable(
-                            PlatformUI.MIRTH_FRAME, e, "Failed to start cache refresh");
+                            PlatformUI.MIRTH_FRAME, e, "Failed to refresh cache");
                 }
             }
         }.execute();
-
-        JOptionPane.showMessageDialog(this,
-                "Refresh started for '" + selected.getName()
-                        + "'. Check the Event Log for completion.",
-                "Refresh Cache", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private CacheServletInterface getServlet() {

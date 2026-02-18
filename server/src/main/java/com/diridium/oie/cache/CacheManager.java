@@ -26,19 +26,46 @@ import org.slf4j.LoggerFactory;
 /**
  * Manages Guava LoadingCache instances keyed by cache definition ID.
  * Each cache lazily loads values from an external database via JDBC.
+ *
+ * <p>Per-cache state is bundled in a {@link CacheRegistration} record so that
+ * registration swaps are atomic for concurrent readers — a reader always sees
+ * a complete, consistent registration or none at all.</p>
  */
-public class CacheManager {
+public final class CacheManager {
 
     private static final Logger log = LoggerFactory.getLogger(CacheManager.class);
 
     private static volatile CacheManager instance;
 
-    private final ConcurrentHashMap<String, LoadingCache<String, String>> caches = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, CacheDefinition> definitions = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> loadTimestamps = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ConcurrentHashMap<String, LongAdder>> accessCounts = new ConcurrentHashMap<>();
+    /**
+     * All per-cache state bundled together so a single {@code ConcurrentHashMap.put}
+     * swaps everything atomically for readers.
+     */
+    static final class CacheRegistration {
+        final LoadingCache<String, String> cache;
+        final CacheDefinition definition;
+        final ConcurrentHashMap<String, Long> loadTimestamps;
+        final ConcurrentHashMap<String, LongAdder> accessCounts;
+        final HikariDataSource pool;
+
+        CacheRegistration(LoadingCache<String, String> cache,
+                          CacheDefinition definition,
+                          ConcurrentHashMap<String, Long> loadTimestamps,
+                          ConcurrentHashMap<String, LongAdder> accessCounts,
+                          HikariDataSource pool) {
+            this.cache = cache;
+            this.definition = definition;
+            this.loadTimestamps = loadTimestamps;
+            this.accessCounts = accessCounts;
+            this.pool = pool;
+        }
+    }
+
+    private final ConcurrentHashMap<String, CacheRegistration> registrations = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> nameToId = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, HikariDataSource> connectionPools = new ConcurrentHashMap<>();
+
+    private CacheManager() {
+    }
 
     public static CacheManager getInstance() {
         var result = instance;
@@ -65,17 +92,19 @@ public class CacheManager {
     /**
      * Build (or rebuild) a Guava LoadingCache for the given definition.
      * Takes a defensive copy so the caller cannot mutate the stored definition.
-     * Constructs the cache and connection pool before touching shared state,
-     * so a pool creation failure leaves the maps unchanged.
+     * All per-cache state is constructed locally first, then swapped in atomically
+     * via a single {@code registrations.put}. The old pool is closed after the swap
+     * so in-flight queries on existing connections can complete.
      */
     public void registerCache(CacheDefinition definition) {
         var def = definition.copy();
 
         var timestamps = new ConcurrentHashMap<String, Long>();
+        var pool = createPool(def);
         var loader = new CacheLoader<String, String>() {
             @Override
             public String load(String key) throws Exception {
-                var result = queryExternalDatabase(def, key);
+                var result = queryExternalDatabase(pool, def, key);
                 timestamps.put(key, System.currentTimeMillis());
                 return result;
             }
@@ -93,18 +122,19 @@ public class CacheManager {
 
         var cache = builder.build(loader);
 
-        // Create pool before mutating shared state — this is the only call that can throw
-        var pool = createPool(def);
+        var reg = new CacheRegistration(cache, def, timestamps, new ConcurrentHashMap<>(), pool);
 
-        // All local construction succeeded — now atomically update shared maps
-        closePoolQuietly(def.getId());
-        caches.put(def.getId(), cache);
-        definitions.put(def.getId(), def);
-        loadTimestamps.put(def.getId(), timestamps);
-        accessCounts.put(def.getId(), new ConcurrentHashMap<>());
+        // Atomic swap — readers see either the complete old registration or the complete new one
+        var old = registrations.put(def.getId(), reg);
         nameToId.put(def.getName(), def.getId());
-        connectionPools.put(def.getId(), pool);
         GlobalVariableStore.getInstance().put(def.getName(), new CacheLookup(def.getName()));
+
+        // Close old pool AFTER the new registration is visible,
+        // so in-flight queries that already obtained the old pool reference can finish
+        if (old != null) {
+            closePoolQuietly(old.pool);
+        }
+
         log.info("Registered cache '{}'", def.getName());
     }
 
@@ -112,18 +142,13 @@ public class CacheManager {
      * Remove a cache and its definition.
      */
     public void unregisterCache(String definitionId) {
-        var def = definitions.remove(definitionId);
-        if (def != null) {
-            nameToId.remove(def.getName());
-            GlobalVariableStore.getInstance().remove(def.getName());
+        var reg = registrations.remove(definitionId);
+        if (reg != null) {
+            nameToId.remove(reg.definition.getName());
+            GlobalVariableStore.getInstance().remove(reg.definition.getName());
+            reg.cache.invalidateAll();
+            closePoolQuietly(reg.pool);
         }
-        var cache = caches.remove(definitionId);
-        if (cache != null) {
-            cache.invalidateAll();
-        }
-        loadTimestamps.remove(definitionId);
-        accessCounts.remove(definitionId);
-        closePoolQuietly(definitionId);
     }
 
     /**
@@ -139,38 +164,46 @@ public class CacheManager {
 
     /**
      * Look up a value from the cache. Returns null if the key produces no result.
+     * Access count is only incremented on successful lookups (hit or null-return),
+     * not when the load throws an exception.
      */
     public String get(String definitionId, String key) throws Exception {
-        var cache = caches.get(definitionId);
-        if (cache == null) {
+        var reg = registrations.get(definitionId);
+        if (reg == null) {
             throw new IllegalArgumentException("No cache registered for definition: " + definitionId);
         }
         try {
-            var result = cache.get(key);
+            var result = reg.cache.get(key);
+            incrementAccessCount(reg, key);
             return result;
         } catch (CacheLoader.InvalidCacheLoadException e) {
             // Guava throws this when CacheLoader returns null — means key not found
+            incrementAccessCount(reg, key);
             return null;
-        } finally {
-            incrementAccessCount(definitionId, key);
         }
     }
 
     /**
      * Refresh all entries currently in the cache (does NOT load new keys).
+     * Uses invalidate-then-get to force synchronous reloading so the method
+     * does not return until all entries have been re-fetched from the database.
      */
     public void refresh(String definitionId) {
-        var cache = caches.get(definitionId);
-        if (cache == null) {
+        var reg = registrations.get(definitionId);
+        if (reg == null) {
             throw new IllegalArgumentException("No cache registered for definition: " + definitionId);
         }
-        for (var key : cache.asMap().keySet()) {
-            cache.refresh(key);
+        var keys = new ArrayList<>(reg.cache.asMap().keySet());
+        for (var key : keys) {
+            reg.cache.invalidate(key);
+            try {
+                reg.cache.get(key);
+            } catch (Exception e) {
+                log.warn("Failed to refresh key '{}' in cache '{}': {}",
+                        key, reg.definition.getName(), e.getMessage());
+            }
         }
-        var def = definitions.get(definitionId);
-        if (def != null) {
-            log.info("Refreshed cache '{}'", def.getName());
-        }
+        log.info("Refreshed cache '{}'", reg.definition.getName());
     }
 
     /**
@@ -178,11 +211,9 @@ public class CacheManager {
      */
     public List<CacheStatistics> getAllStatistics() {
         var result = new ArrayList<CacheStatistics>();
-        for (var id : definitions.keySet()) {
-            var stats = getStatistics(id);
-            if (stats != null) {
-                result.add(stats);
-            }
+        for (var entry : registrations.entrySet()) {
+            var stats = buildStatistics(entry.getKey(), entry.getValue());
+            result.add(stats);
         }
         return result;
     }
@@ -191,17 +222,19 @@ public class CacheManager {
      * Get runtime statistics for a cache.
      */
     public CacheStatistics getStatistics(String definitionId) {
-        var cache = caches.get(definitionId);
-        var def = definitions.get(definitionId);
-        if (cache == null || def == null) {
+        var reg = registrations.get(definitionId);
+        if (reg == null) {
             return null;
         }
+        return buildStatistics(definitionId, reg);
+    }
 
-        CacheStats stats = cache.stats();
+    private CacheStatistics buildStatistics(String definitionId, CacheRegistration reg) {
+        CacheStats stats = reg.cache.stats();
         var result = new CacheStatistics();
         result.setCacheDefinitionId(definitionId);
-        result.setName(def.getName());
-        result.setSize(cache.size());
+        result.setName(reg.definition.getName());
+        result.setSize(reg.cache.size());
         result.setHitCount(stats.hitCount());
         result.setMissCount(stats.missCount());
         result.setLoadSuccessCount(stats.loadSuccessCount());
@@ -214,7 +247,7 @@ public class CacheManager {
 
         // Estimate memory: Java String uses ~2 bytes per char + object overhead
         long memoryEstimate = 0;
-        for (var entry : cache.asMap().entrySet()) {
+        for (var entry : reg.cache.asMap().entrySet()) {
             var k = entry.getKey();
             var v = entry.getValue();
             memoryEstimate += (k != null ? k.length() * 2L : 0)
@@ -229,19 +262,17 @@ public class CacheManager {
      * Get a point-in-time snapshot of a cache: statistics plus all current entries.
      */
     public CacheSnapshot getSnapshot(String definitionId) {
-        var stats = getStatistics(definitionId);
-        if (stats == null) {
+        var reg = registrations.get(definitionId);
+        if (reg == null) {
             return null;
         }
 
-        var cache = caches.get(definitionId);
-        var timestamps = loadTimestamps.getOrDefault(definitionId, new ConcurrentHashMap<>());
-        var counts = accessCounts.getOrDefault(definitionId, new ConcurrentHashMap<>());
+        var stats = buildStatistics(definitionId, reg);
         var entries = new ArrayList<CacheEntry>();
 
-        for (var entry : cache.asMap().entrySet()) {
-            var loadedAt = timestamps.getOrDefault(entry.getKey(), 0L);
-            var adder = counts.get(entry.getKey());
+        for (var entry : reg.cache.asMap().entrySet()) {
+            var loadedAt = reg.loadTimestamps.getOrDefault(entry.getKey(), 0L);
+            var adder = reg.accessCounts.get(entry.getKey());
             var accessCount = adder != null ? adder.sum() : 0L;
             entries.add(new CacheEntry(entry.getKey(), entry.getValue(), loadedAt, accessCount));
         }
@@ -329,35 +360,27 @@ public class CacheManager {
     }
 
     private void invalidateAll() {
-        connectionPools.keySet().forEach(this::closePoolQuietly);
-        caches.values().forEach(LoadingCache::invalidateAll);
-        caches.clear();
-        definitions.clear();
-        loadTimestamps.clear();
-        accessCounts.clear();
         var globalStore = GlobalVariableStore.getInstance();
-        nameToId.keySet().forEach(globalStore::remove);
+        for (var reg : registrations.values()) {
+            reg.cache.invalidateAll();
+            closePoolQuietly(reg.pool);
+            globalStore.remove(reg.definition.getName());
+        }
+        registrations.clear();
         nameToId.clear();
     }
 
-    private void incrementAccessCount(String definitionId, String key) {
-        var counters = accessCounts.get(definitionId);
-        if (counters != null) {
-            counters.computeIfAbsent(key, k -> new LongAdder()).increment();
-        }
+    private static void incrementAccessCount(CacheRegistration reg, String key) {
+        reg.accessCounts.computeIfAbsent(key, k -> new LongAdder()).increment();
     }
 
     /**
      * Execute the parameterized query against the external database.
-     * Borrows a connection from the per-cache HikariCP pool and returns it after.
+     * Uses the pool captured by the CacheLoader closure, so in-flight queries
+     * are not affected by concurrent re-registration.
      * Returns null if no row matches (Guava will translate this to InvalidCacheLoadException).
      */
-    private String queryExternalDatabase(CacheDefinition definition, String key) throws Exception {
-        var pool = connectionPools.get(definition.getId());
-        if (pool == null) {
-            throw new IllegalStateException("No connection pool for cache: " + definition.getName());
-        }
-
+    private String queryExternalDatabase(HikariDataSource pool, CacheDefinition definition, String key) throws Exception {
         try (var conn = pool.getConnection()) {
             PreparedStatement stmt = null;
             ResultSet rs = null;
@@ -407,14 +430,11 @@ public class CacheManager {
         return ds;
     }
 
-    private void closePoolQuietly(String definitionId) {
-        var pool = connectionPools.remove(definitionId);
-        if (pool != null) {
-            try {
-                pool.close();
-            } catch (Exception e) {
-                log.debug("Failed to close connection pool for cache '{}'", definitionId, e);
-            }
+    private static void closePoolQuietly(HikariDataSource pool) {
+        try {
+            pool.close();
+        } catch (Exception e) {
+            log.debug("Failed to close connection pool '{}'", pool.getPoolName(), e);
         }
     }
 

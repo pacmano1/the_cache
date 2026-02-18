@@ -8,6 +8,7 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
 
@@ -76,6 +77,8 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
     @Override
     public CacheDefinition createCacheDefinition(CacheDefinition definition) throws ClientException {
         try {
+            validateDefinition(definition);
+
             // Check for duplicate name
             var existing = repo.getByName(definition.getName());
             if (existing != null) {
@@ -100,6 +103,8 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
     @Override
     public CacheDefinition updateCacheDefinition(String id, CacheDefinition definition) throws ClientException {
         try {
+            validateDefinition(definition);
+
             var existing = repo.getById(id);
             if (existing == null) {
                 throw new MirthApiException(Status.NOT_FOUND);
@@ -252,6 +257,37 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             log.error("Failed to get statistics for cache {}", id, e);
             throw new MirthApiException(e);
         }
+    }
+
+    private static void validateDefinition(CacheDefinition def) {
+        if (def.getName() == null || def.getName().isBlank()) {
+            throw badRequest("Name is required");
+        }
+        if (def.getDriver() == null || def.getDriver().isBlank()) {
+            throw badRequest("Driver is required");
+        }
+        if (def.getUrl() == null || def.getUrl().isBlank()) {
+            throw badRequest("URL is required");
+        }
+        if (def.getQuery() == null || def.getQuery().isBlank()) {
+            throw badRequest("Query is required");
+        }
+        if (def.getValueColumn() == null || def.getValueColumn().isBlank()) {
+            throw badRequest("Value column is required");
+        }
+        if (def.getMaxSize() < 0) {
+            throw badRequest("Max size must be non-negative");
+        }
+        if (def.getEvictionDurationMinutes() < 0) {
+            throw badRequest("Eviction duration must be non-negative");
+        }
+        if (def.getMaxConnections() < 1) {
+            throw badRequest("Max connections must be at least 1");
+        }
+    }
+
+    private static MirthApiException badRequest(String message) {
+        return new MirthApiException(Response.status(Status.BAD_REQUEST).entity(message).build());
     }
 
     private void dispatchEvent(String action, String cacheName) {

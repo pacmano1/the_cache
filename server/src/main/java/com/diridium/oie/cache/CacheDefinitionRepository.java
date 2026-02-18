@@ -49,14 +49,15 @@ public class CacheDefinitionRepository {
     }
 
     public CacheDefinition create(CacheDefinition def) {
-        if (def.getId() == null) {
-            def.setId(UUID.randomUUID().toString());
+        var copy = def.copy();
+        if (copy.getId() == null) {
+            copy.setId(UUID.randomUUID().toString());
         }
-        var params = toParams(def);
+        var params = toParams(copy);
         params.put("createdAt", new Timestamp(System.currentTimeMillis()));
         params.put("updatedAt", new Timestamp(System.currentTimeMillis()));
         SqlConfig.getInstance().getSqlSessionManager().insert(stmt("insert"), params);
-        return def;
+        return copy;
     }
 
     public CacheDefinition update(CacheDefinition def) {

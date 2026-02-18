@@ -314,7 +314,7 @@ public class CacheInspectorDialog extends JDialog {
                 int col = table.columnAtPoint(e.getPoint());
                 if (row >= 0 && col == 1) {
                     int modelRow = table.convertRowIndexToModel(row);
-                    var fullValue = entries.get(modelRow).getValue();
+                    var fullValue = model.getEntry(modelRow).getValue();
                     table.setToolTipText(fullValue);
                 } else {
                     table.setToolTipText(null);
