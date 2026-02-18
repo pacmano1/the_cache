@@ -4,6 +4,7 @@
 package com.diridium.oie.cache;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -25,7 +26,7 @@ public class CacheSnapshot implements Serializable {
 
     public CacheSnapshot(CacheStatistics statistics, List<CacheEntry> entries) {
         this.statistics = statistics;
-        this.entries = entries != null ? List.copyOf(entries) : List.of();
+        this.entries = entries != null ? new ArrayList<>(entries) : new ArrayList<>();
     }
 
     public CacheStatistics getStatistics() {
@@ -37,10 +38,10 @@ public class CacheSnapshot implements Serializable {
     }
 
     public List<CacheEntry> getEntries() {
-        return entries != null ? Collections.unmodifiableList(entries) : List.of();
+        return entries != null ? Collections.unmodifiableList(entries) : Collections.emptyList();
     }
 
     public void setEntries(List<CacheEntry> entries) {
-        this.entries = entries != null ? List.copyOf(entries) : List.of();
+        this.entries = entries != null ? new ArrayList<>(entries) : new ArrayList<>();
     }
 }
