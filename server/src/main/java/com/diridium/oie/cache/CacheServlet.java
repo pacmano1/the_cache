@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
  * REST servlet implementing the cache manager API.
  * Extends MirthServlet for automatic permission enforcement via @MirthOperation.
  */
+@SuppressWarnings("RedundantThrows")
 public class CacheServlet extends MirthServlet implements CacheServletInterface {
 
     private static final Logger log = LoggerFactory.getLogger(CacheServlet.class);
@@ -45,6 +46,7 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
         this.serverId = ConfigurationController.getInstance().getServerId();
     }
 
+    @SuppressWarnings("RedundantThrows")
     @Override
     public List<CacheDefinition> getCacheDefinitions() throws ClientException {
         try {

@@ -22,6 +22,7 @@ public class CacheLookup {
      * @param key the lookup key
      * @return the cached value, or null if not found
      */
+    @SuppressWarnings("UnusedReturnValue")
     public String lookup(String key) throws Exception {
         return CacheManager.getInstance().getByName(cacheName, key);
     }
