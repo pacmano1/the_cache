@@ -119,10 +119,12 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             definition.setId(id);
             var updated = repo.update(definition);
 
-            // Re-register the cache with updated settings (or unregister if disabled)
-            cacheManager.unregisterCache(id);
+            // Re-register atomically (registerCache handles name changes and old pool cleanup),
+            // or unregister if the cache is being disabled
             if (updated.isEnabled()) {
                 cacheManager.registerCache(updated);
+            } else {
+                cacheManager.unregisterCache(id);
             }
 
             dispatchEvent("Updated", updated.getName());
@@ -164,8 +166,9 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             }
 
             dispatchEvent("Refresh Started", def.getName());
-            cacheManager.refresh(id);
-            dispatchEvent("Refresh Completed", def.getName());
+            int failures = cacheManager.refresh(id);
+            dispatchEvent(failures == 0 ? "Refresh Completed" : "Refresh Completed (" + failures + " failures)",
+                    def.getName());
         } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {

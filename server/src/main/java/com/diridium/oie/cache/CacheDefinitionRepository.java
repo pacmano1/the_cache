@@ -61,10 +61,11 @@ public class CacheDefinitionRepository {
     }
 
     public CacheDefinition update(CacheDefinition def) {
-        var params = toParams(def);
+        var copy = def.copy();
+        var params = toParams(copy);
         params.put("updatedAt", new Timestamp(System.currentTimeMillis()));
         SqlConfig.getInstance().getSqlSessionManager().update(stmt("update"), params);
-        return def;
+        return copy;
     }
 
     public void delete(String id) {
@@ -164,8 +165,11 @@ public class CacheDefinitionRepository {
             var encryptor = ConfigurationController.getInstance().getEncryptor();
             return encryptor.decrypt(password.substring(ENC_PREFIX.length()));
         } catch (Exception e) {
-            log.warn("Failed to decrypt password, returning as-is: {}", e.getMessage());
-            return password;
+            // Strip the {enc} prefix so it doesn't leak into the password field.
+            // If we returned "{enc}..." as-is, encryptPassword would skip re-encrypting it
+            // (it checks for the prefix), creating a corrupt round-trip.
+            log.warn("Failed to decrypt password — returning empty; admin must re-enter: {}", e.getMessage());
+            return "";
         }
     }
 }

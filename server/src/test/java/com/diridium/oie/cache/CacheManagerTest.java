@@ -200,6 +200,39 @@ class CacheManagerTest {
     }
 
     @Test
+    void registerCache_reregistrationCleansUpOldName() {
+        var def = createDefinition("old-name");
+        cacheManager.registerCache(def);
+
+        // Re-register with a new name (simulating an update)
+        def.setName("new-name");
+        cacheManager.registerCache(def);
+
+        // Old name should no longer resolve
+        assertThrows(IllegalArgumentException.class, () ->
+                cacheManager.getByName("old-name", "key"));
+
+        // New name should resolve (will throw from JDBC, not from name resolution)
+        var ex = assertThrows(Exception.class, () ->
+                cacheManager.getByName("new-name", "key"));
+        assertFalse(ex instanceof IllegalArgumentException,
+                "Should not be a name resolution error");
+    }
+
+    @Test
+    void registerCache_reregistrationWithSameNameDoesNotBreak() {
+        var def = createDefinition("same-name");
+        cacheManager.registerCache(def);
+
+        // Re-register with same name — should not break
+        cacheManager.registerCache(def);
+
+        var stats = cacheManager.getStatistics(def.getId());
+        assertNotNull(stats);
+        assertEquals("same-name", stats.getName());
+    }
+
+    @Test
     void registerCache_storesDefensiveCopy() {
         var def = createDefinition("defensive-copy");
         cacheManager.registerCache(def);

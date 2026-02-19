@@ -124,8 +124,17 @@ public final class CacheManager {
 
         var reg = new CacheRegistration(cache, def, timestamps, new ConcurrentHashMap<>(), pool);
 
-        // Atomic swap — readers see either the complete old registration or the complete new one
+        // Atomic swap — readers see either the complete old registration or the complete new one.
+        // The registrations.put happens first, so concurrent readers always find a valid
+        // registration for the ID. The nameToId/GlobalVariableStore updates follow — during
+        // that brief window, both old and new names resolve to the same ID, which is safe.
         var old = registrations.put(def.getId(), reg);
+
+        // If the name changed, remove the stale name mapping so it doesn't linger
+        if (old != null && !old.definition.getName().equals(def.getName())) {
+            nameToId.remove(old.definition.getName());
+            GlobalVariableStore.getInstance().remove(old.definition.getName());
+        }
         nameToId.put(def.getName(), def.getId());
         GlobalVariableStore.getInstance().put(def.getName(), new CacheLookup(def.getName()));
 
@@ -187,23 +196,29 @@ public final class CacheManager {
      * Refresh all entries currently in the cache (does NOT load new keys).
      * Uses invalidate-then-get to force synchronous reloading so the method
      * does not return until all entries have been re-fetched from the database.
+     *
+     * @return the number of keys that failed to refresh
      */
-    public void refresh(String definitionId) {
+    public int refresh(String definitionId) {
         var reg = registrations.get(definitionId);
         if (reg == null) {
             throw new IllegalArgumentException("No cache registered for definition: " + definitionId);
         }
         var keys = new ArrayList<>(reg.cache.asMap().keySet());
+        int failures = 0;
         for (var key : keys) {
             reg.cache.invalidate(key);
             try {
                 reg.cache.get(key);
             } catch (Exception e) {
+                failures++;
                 log.warn("Failed to refresh key '{}' in cache '{}': {}",
                         key, reg.definition.getName(), e.getMessage());
             }
         }
-        log.info("Refreshed cache '{}'", reg.definition.getName());
+        log.info("Refreshed cache '{}': {} keys, {} failures",
+                reg.definition.getName(), keys.size(), failures);
+        return failures;
     }
 
     /**
@@ -453,7 +468,7 @@ public final class CacheManager {
                 .findFirst().orElse(requestedColumn);
     }
 
-    private void closeStatementAndResultSet(ResultSet rs, PreparedStatement stmt) {
+    private static void closeStatementAndResultSet(ResultSet rs, PreparedStatement stmt) {
         if (rs != null) {
             try { rs.close(); } catch (Exception e) { log.debug("Failed to close ResultSet", e); }
         }
