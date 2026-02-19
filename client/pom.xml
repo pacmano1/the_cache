@@ -32,10 +32,12 @@
             <version>${mc.version}</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Required: Mirth's Frame extends SwingX JXFrame — needed for type resolution -->
         <dependency>
             <groupId>org.swinglabs</groupId>
             <artifactId>swingx-core</artifactId>
             <version>${swingx-core.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.miglayout</groupId>

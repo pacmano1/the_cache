@@ -27,12 +27,6 @@
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
         </dependency>
-        <dependency>
-            <groupId>commons-dbutils</groupId>
-            <artifactId>commons-dbutils</artifactId>
-            <version>${commons-dbutils.version}</version>
-            <scope>provided</scope>
-        </dependency>
         <!-- HikariCP is bundled by the OIE engine at runtime; provided scope avoids
              packaging a duplicate JAR. If the engine ever drops HikariCP, this must
              change to compile scope and the assembly must include the JAR. -->

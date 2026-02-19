@@ -457,9 +457,21 @@ public class CacheDefinitionDialog extends JDialog {
             return;
         }
 
+        var valueColumn = valueColumnField.getText().trim();
+        if (valueColumn.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Value Column is required.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            valueColumnField.requestFocus();
+            return;
+        }
+
         long maxSize;
         try {
             maxSize = maxSizeField.getText().trim().isEmpty() ? 10000 : Long.parseLong(maxSizeField.getText().trim());
+            if (maxSize < 0) {
+                JOptionPane.showMessageDialog(this, "Max Size must be non-negative.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                maxSizeField.requestFocus();
+                return;
+            }
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this, "Max Size must be a number.", "Validation Error", JOptionPane.ERROR_MESSAGE);
             maxSizeField.requestFocus();
@@ -469,6 +481,11 @@ public class CacheDefinitionDialog extends JDialog {
         long eviction;
         try {
             eviction = evictionField.getText().trim().isEmpty() ? 60 : Long.parseLong(evictionField.getText().trim());
+            if (eviction < 0) {
+                JOptionPane.showMessageDialog(this, "Eviction duration must be non-negative.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                evictionField.requestFocus();
+                return;
+            }
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this, "Eviction duration must be a number.", "Validation Error", JOptionPane.ERROR_MESSAGE);
             evictionField.requestFocus();
