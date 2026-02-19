@@ -1,10 +1,12 @@
-target/
-*.class
-*.jar
-*.zip
+.classpath
+.project
+.settings
+target
 .idea/
 *.iml
-.settings/
-.project
-.classpath
+.DS_Store
 CLAUDE.md
+
+# Signing configuration (machine-specific, contains secrets)
+yubikey-pkcs11.cfg
+certchain.pem
