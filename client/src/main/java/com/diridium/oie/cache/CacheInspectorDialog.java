@@ -161,7 +161,10 @@ public class CacheInspectorDialog extends JDialog {
         panel.add(new JLabel(nf.format(stats.getEvictionCount())), "wrap");
 
         panel.add(new JLabel("Total DB Time:"));
-        panel.add(new JLabel(formatDuration(totalLoadMs)), "span 5");
+        panel.add(new JLabel(formatDuration(totalLoadMs)));
+        panel.add(new JLabel("Est. Without Cache:"));
+        var estWithoutCacheMs = stats.getAverageLoadPenaltyNanos() / 1_000_000.0 * stats.getRequestCount();
+        panel.add(new JLabel(formatDuration(estWithoutCacheMs)), "span 3");
 
         return panel;
     }
@@ -356,14 +359,18 @@ public class CacheInspectorDialog extends JDialog {
 
     private void showStatsHelp() {
         var help = """
-                <html><body style='width:350px; font-family:sans-serif'>
+                <html><body style='width:400px; font-family:sans-serif'>
                 <b>Entries</b> — Number of key-value pairs currently in the cache.<br><br>
                 <b>Hit Rate</b> — Percentage of lookups served from cache without a database call.<br><br>
                 <b>Avg Load</b> — Average time per database round-trip on a cache miss.<br><br>
                 <b>Hits</b> — Lookups served from cache (no database call).<br><br>
                 <b>Misses</b> — Lookups that required a database call to load the value.<br><br>
                 <b>Evictions</b> — Entries removed due to max size or expiration.<br><br>
-                <b>Total DB Time</b> — Cumulative time spent waiting on database loads (cache misses only).
+                <b>Total DB Time</b> — Cumulative time spent waiting on database loads (cache misses only).<br><br>
+                <b>Est. Without Cache</b> — Approximate total time that would have been spent \
+                on database calls if every lookup had been a cache miss. Calculated as \
+                <i>Avg Load &times; total lookups</i>. This is a rough estimate — actual \
+                database performance may vary under different load conditions.
                 </body></html>""";
         JOptionPane.showMessageDialog(this, help, "Cache Statistics Help", JOptionPane.INFORMATION_MESSAGE);
     }
