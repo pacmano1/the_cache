@@ -104,9 +104,6 @@
                     <archiveDirectory>${project.build.directory}/to-be-packed</archiveDirectory>
                     <includes>
                         <include>*${project.version}*.jar</include>
-                        <include>guava-*.jar</include>
-                        <include>failureaccess-*.jar</include>
-                        <include>miglayout-*.jar</include>
                     </includes>
                     <keystore>${signing.keystore}</keystore>
                     <storetype>${signing.storetype}</storetype>

@@ -22,10 +22,14 @@
             <artifactId>oie-cache-manager-shared</artifactId>
             <version>${revision}</version>
         </dependency>
+        <!-- Guava is bundled by the OIE engine at runtime (32.0.1); provided scope
+             avoids packaging a duplicate JAR. LoadingCache/CacheBuilder APIs are
+             stable across versions. -->
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
+            <scope>provided</scope>
         </dependency>
         <!-- HikariCP is bundled by the OIE engine at runtime; provided scope avoids
              packaging a duplicate JAR. If the engine ever drops HikariCP, this must

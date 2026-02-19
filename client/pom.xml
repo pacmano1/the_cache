@@ -39,10 +39,12 @@
             <version>${swingx-core.version}</version>
             <scope>provided</scope>
         </dependency>
+        <!-- MigLayout is bundled by the OIE engine client at runtime -->
         <dependency>
             <groupId>com.miglayout</groupId>
             <artifactId>miglayout-swing</artifactId>
             <version>${miglayout.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.fifesoft</groupId>
