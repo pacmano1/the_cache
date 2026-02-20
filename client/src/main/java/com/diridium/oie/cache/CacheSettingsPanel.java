@@ -119,7 +119,8 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         btnRefresh.setEnabled(false);
         btnRefresh.addActionListener(e -> refreshCache());
 
-        var btnReload = new JButton(new ImageIcon(Frame.class.getResource("images/refresh.png")));
+        var refreshIcon = Frame.class.getResource("images/refresh.png");
+        var btnReload = refreshIcon != null ? new JButton(new ImageIcon(refreshIcon)) : new JButton("\u21BB");
         btnReload.setToolTipText("Reload cache definitions and statistics");
         btnReload.addActionListener(e -> doRefresh());
 
