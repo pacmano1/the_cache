@@ -350,7 +350,8 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
                 try {
                     get();
                     JOptionPane.showMessageDialog(CacheSettingsPanel.this,
-                            "Refresh completed for '" + selected.getName() + "'.",
+                            "Refresh request queued for '" + selected.getName()
+                                    + "'.\nConsult the Events page to see the completion notice.",
                             "Refresh Cache", JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception e) {
                     PlatformUI.MIRTH_FRAME.alertThrowable(

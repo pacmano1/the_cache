@@ -5,6 +5,8 @@ package com.diridium.oie.cache;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Context;
@@ -33,6 +35,11 @@ import org.slf4j.LoggerFactory;
 public class CacheServlet extends MirthServlet implements CacheServletInterface {
 
     private static final Logger log = LoggerFactory.getLogger(CacheServlet.class);
+    private static final ExecutorService refreshExecutor = Executors.newSingleThreadExecutor(r -> {
+        var t = new Thread(r, "oie-cache-refresh");
+        t.setDaemon(true);
+        return t;
+    });
 
     private final CacheDefinitionRepository repo;
     private final CacheManager cacheManager;
@@ -166,9 +173,17 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
             }
 
             dispatchEvent("Refresh Started", def.getName());
-            int failures = cacheManager.refresh(id);
-            dispatchEvent(failures == 0 ? "Refresh Completed" : "Refresh Completed (" + failures + " failures)",
-                    def.getName());
+            var cacheName = def.getName();
+            refreshExecutor.submit(() -> {
+                try {
+                    int failures = cacheManager.refresh(id);
+                    dispatchEvent(failures == 0 ? "Refresh Completed"
+                            : "Refresh Completed (" + failures + " failures)", cacheName);
+                } catch (Exception e) {
+                    log.error("Failed to refresh cache '{}'", cacheName, e);
+                    dispatchEvent("Refresh Failed", cacheName);
+                }
+            });
         } catch (MirthApiException e) {
             throw e;
         } catch (Exception e) {
