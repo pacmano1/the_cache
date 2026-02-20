@@ -414,8 +414,14 @@ public class CacheDefinitionDialog extends JDialog {
                 testQueryButton.setText("Test Query");
                 try {
                     var result = get();
-                    JOptionPane.showMessageDialog(CacheDefinitionDialog.this, result,
-                            "Query Test", JOptionPane.INFORMATION_MESSAGE);
+                    var valueSep = result.indexOf("\nValue: ");
+                    if (valueSep >= 0) {
+                        var value = result.substring(valueSep + "\nValue: ".length());
+                        new QueryTestResultDialog(CacheDefinitionDialog.this, key, value).setVisible(true);
+                    } else {
+                        JOptionPane.showMessageDialog(CacheDefinitionDialog.this, result,
+                                "Query Test", JOptionPane.INFORMATION_MESSAGE);
+                    }
                 } catch (Exception ex) {
                     var cause = ex.getCause() instanceof ClientException ce ? ce.getMessage() : ex.getMessage();
                     JOptionPane.showMessageDialog(CacheDefinitionDialog.this,

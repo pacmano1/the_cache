@@ -88,12 +88,14 @@ public class CacheInspectorDialog extends JDialog {
 
         statsPanel = buildStatsPanel(snapshot.getStatistics());
         centerPanel = buildCenterPanel(snapshot.getEntries());
-        updateStatusLabel(snapshot);
-        updatePaginationButtons(snapshot);
 
         add(statsPanel, BorderLayout.NORTH);
         add(centerPanel, BorderLayout.CENTER);
         add(buildBottomPanel(cacheName), BorderLayout.SOUTH);
+
+        // Update after buildBottomPanel creates statusLabel and pagination buttons
+        updateStatusLabel(snapshot);
+        updatePaginationButtons(snapshot);
 
         setSize(700, 500);
         setMinimumSize(new Dimension(550, 400));
