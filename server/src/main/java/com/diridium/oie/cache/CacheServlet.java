@@ -246,11 +246,11 @@ public class CacheServlet extends MirthServlet implements CacheServletInterface 
     }
 
     @Override
-    public CacheSnapshot getCacheSnapshot(String id, int limit, String sortBy, String sortDir,
-                                          String filter, String filterScope, boolean filterRegex)
-            throws ClientException {
+    public CacheSnapshot getCacheSnapshot(String id, int offset, int limit, String sortBy,
+                                          String sortDir, String filter, String filterScope,
+                                          boolean filterRegex) throws ClientException {
         try {
-            var snapshot = cacheManager.getSnapshot(id, limit, sortBy, sortDir,
+            var snapshot = cacheManager.getSnapshot(id, offset, limit, sortBy, sortDir,
                     filter, filterScope, filterRegex);
             if (snapshot == null) {
                 throw new MirthApiException(Status.NOT_FOUND);

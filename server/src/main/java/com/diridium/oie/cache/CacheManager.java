@@ -278,7 +278,7 @@ public final class CacheManager {
     /**
      * Get a point-in-time snapshot of a cache with server-side filtering, sorting, and limiting.
      */
-    public CacheSnapshot getSnapshot(String definitionId, int limit, String sortBy,
+    public CacheSnapshot getSnapshot(String definitionId, int offset, int limit, String sortBy,
                                      String sortDir, String filter, String filterScope,
                                      boolean filterRegex) {
         var reg = registrations.get(definitionId);
@@ -332,11 +332,12 @@ public final class CacheManager {
         }
         filtered.sort(comparator);
 
-        // Limit
-        var capped = limit > 0 && filtered.size() > limit
-                ? filtered.subList(0, limit) : filtered;
+        // Offset + Limit
+        int fromIndex = Math.max(0, Math.min(offset, filtered.size()));
+        int toIndex = limit > 0 ? Math.min(fromIndex + limit, filtered.size()) : filtered.size();
+        var page = filtered.subList(fromIndex, toIndex);
 
-        return new CacheSnapshot(stats, capped, totalEntries, matchedEntries);
+        return new CacheSnapshot(stats, page, totalEntries, matchedEntries);
     }
 
     /**

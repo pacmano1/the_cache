@@ -309,7 +309,7 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
             @Override
             protected CacheSnapshot doInBackground() throws Exception {
                 return getServlet().getCacheSnapshot(selected.getId(),
-                        1000, "key", "asc", null, "key", false);
+                        0, 1000, "key", "asc", null, "key", false);
             }
 
             @Override
@@ -318,9 +318,9 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
                     var snapshot = get();
                     var dialog = new CacheInspectorDialog(
                             PlatformUI.MIRTH_FRAME, selected.getName(), snapshot,
-                            (limit, sortBy, sortDir, filter, filterScope, filterRegex) ->
+                            (offset, limit, sortBy, sortDir, filter, filterScope, filterRegex) ->
                                     getServlet().getCacheSnapshot(selected.getId(),
-                                            limit, sortBy, sortDir, filter, filterScope, filterRegex));
+                                            offset, limit, sortBy, sortDir, filter, filterScope, filterRegex));
                     dialog.setVisible(true);
                 } catch (Exception e) {
                     PlatformUI.MIRTH_FRAME.alertThrowable(

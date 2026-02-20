@@ -146,6 +146,8 @@ public interface CacheServletInterface extends BaseServletInterface {
     CacheSnapshot getCacheSnapshot(
             @Param("id") @Parameter(description = "Cache definition ID", required = true)
             @PathParam("id") String id,
+            @Param("offset") @Parameter(description = "Number of entries to skip (default 0)")
+            @QueryParam("offset") @javax.ws.rs.DefaultValue("0") int offset,
             @Param("limit") @Parameter(description = "Max entries to return (default 1000)")
             @QueryParam("limit") @javax.ws.rs.DefaultValue("1000") int limit,
             @Param("sortBy") @Parameter(description = "Sort field: key, value, loadedAt, accessCount")

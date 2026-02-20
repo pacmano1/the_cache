@@ -56,7 +56,7 @@ public class CacheInspectorDialog extends JDialog {
 
     @FunctionalInterface
     public interface SnapshotFetcher {
-        CacheSnapshot fetch(int limit, String sortBy, String sortDir,
+        CacheSnapshot fetch(int offset, int limit, String sortBy, String sortDir,
                             String filter, String filterScope, boolean filterRegex) throws Exception;
     }
 
@@ -67,11 +67,17 @@ public class CacheInspectorDialog extends JDialog {
     private JComboBox<String> searchScopeCombo;
     private JCheckBox regexCheckBox;
     private JLabel statusLabel;
+    private JButton btnPrev;
+    private JButton btnNext;
     private MirthTable entriesTable;
 
     // Current sort state
     private String currentSortBy = "key";
     private String currentSortDir = "asc";
+
+    // Pagination state
+    private int currentOffset = 0;
+    private long lastMatchedEntries = 0;
 
     public CacheInspectorDialog(JFrame parent, String cacheName,
                                 CacheSnapshot snapshot, SnapshotFetcher fetcher) {
@@ -83,6 +89,7 @@ public class CacheInspectorDialog extends JDialog {
         statsPanel = buildStatsPanel(snapshot.getStatistics());
         centerPanel = buildCenterPanel(snapshot.getEntries());
         updateStatusLabel(snapshot);
+        updatePaginationButtons(snapshot);
 
         add(statsPanel, BorderLayout.NORTH);
         add(centerPanel, BorderLayout.CENTER);
@@ -104,11 +111,12 @@ public class CacheInspectorDialog extends JDialog {
             default -> "key";
         };
         var filterRegex = regexCheckBox.isSelected();
+        var offset = currentOffset;
 
         new SwingWorker<CacheSnapshot, Void>() {
             @Override
             protected CacheSnapshot doInBackground() throws Exception {
-                return fetcher.fetch(DEFAULT_LIMIT, currentSortBy, currentSortDir,
+                return fetcher.fetch(offset, DEFAULT_LIMIT, currentSortBy, currentSortDir,
                         filter.isEmpty() ? null : filter, filterScope, filterRegex);
             }
 
@@ -129,6 +137,7 @@ public class CacheInspectorDialog extends JDialog {
                     searchField.setText(searchText);
                     regexCheckBox.setSelected(regexEnabled);
                     updateStatusLabel(snapshot);
+                    updatePaginationButtons(snapshot);
 
                     add(statsPanel, BorderLayout.NORTH);
                     add(centerPanel, BorderLayout.CENTER);
@@ -143,21 +152,36 @@ public class CacheInspectorDialog extends JDialog {
         }.execute();
     }
 
+    private void applyFilterFromStart() {
+        currentOffset = 0;
+        fetchSnapshot();
+    }
+
     private void updateStatusLabel(CacheSnapshot snapshot) {
         if (statusLabel == null) return;
         var nf = NumberFormat.getIntegerInstance();
         long shown = snapshot.getEntries().size();
         long matched = snapshot.getMatchedEntries();
         long total = snapshot.getTotalEntries();
+        lastMatchedEntries = matched;
+
+        int from = currentOffset + 1;
+        int to = currentOffset + (int) shown;
 
         if (matched < total) {
-            statusLabel.setText("Showing " + nf.format(shown) + " of "
+            statusLabel.setText(nf.format(from) + "–" + nf.format(to) + " of "
                     + nf.format(matched) + " matches (" + nf.format(total) + " total)");
-        } else if (shown < total) {
-            statusLabel.setText("Showing " + nf.format(shown) + " of " + nf.format(total) + " entries");
+        } else if (shown < matched || currentOffset > 0) {
+            statusLabel.setText(nf.format(from) + "–" + nf.format(to) + " of " + nf.format(total) + " entries");
         } else {
-            statusLabel.setText("Showing " + nf.format(shown) + " entries");
+            statusLabel.setText(nf.format(shown) + " entries");
         }
+    }
+
+    private void updatePaginationButtons(CacheSnapshot snapshot) {
+        if (btnPrev == null || btnNext == null) return;
+        btnPrev.setEnabled(currentOffset > 0);
+        btnNext.setEnabled(currentOffset + snapshot.getEntries().size() < snapshot.getMatchedEntries());
     }
 
     private JPanel buildStatsPanel(CacheStatistics stats) {
@@ -212,7 +236,7 @@ public class CacheInspectorDialog extends JDialog {
         searchPanel.add(searchScopeCombo, BorderLayout.WEST);
         searchField = new JTextField();
         searchField.setToolTipText("Filter entries (case-insensitive). Press Enter or Apply to search.");
-        searchField.addActionListener(e -> fetchSnapshot());
+        searchField.addActionListener(e -> applyFilterFromStart());
         searchPanel.add(searchField, BorderLayout.CENTER);
 
         var rightPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
@@ -220,7 +244,7 @@ public class CacheInspectorDialog extends JDialog {
         regexCheckBox.setToolTipText("Treat search text as a regular expression");
         rightPanel.add(regexCheckBox);
         var applyButton = new JButton("Apply");
-        applyButton.addActionListener(e -> fetchSnapshot());
+        applyButton.addActionListener(e -> applyFilterFromStart());
         rightPanel.add(applyButton);
         searchPanel.add(rightPanel, BorderLayout.EAST);
 
@@ -256,7 +280,7 @@ public class CacheInspectorDialog extends JDialog {
 
         table.setCellSelectionEnabled(true);
 
-        // Column header click triggers server-side sort
+        // Column header click triggers server-side sort (resets to page 1)
         JTableHeader header = table.getTableHeader();
         header.addMouseListener(new MouseAdapter() {
             @Override
@@ -270,6 +294,7 @@ public class CacheInspectorDialog extends JDialog {
                     currentSortBy = field;
                     currentSortDir = "asc";
                 }
+                currentOffset = 0;
                 fetchSnapshot();
             }
         });
@@ -366,11 +391,29 @@ public class CacheInspectorDialog extends JDialog {
         leftPanel.add(statusLabel);
         panel.add(leftPanel, BorderLayout.WEST);
 
+        btnPrev = new JButton("\u25C0");
+        btnPrev.setToolTipText("Previous page");
+        btnPrev.setEnabled(false);
+        btnPrev.addActionListener(e -> {
+            currentOffset = Math.max(0, currentOffset - DEFAULT_LIMIT);
+            fetchSnapshot();
+        });
+
+        btnNext = new JButton("\u25B6");
+        btnNext.setToolTipText("Next page");
+        btnNext.setEnabled(false);
+        btnNext.addActionListener(e -> {
+            currentOffset += DEFAULT_LIMIT;
+            fetchSnapshot();
+        });
+
         var refreshButton = new JButton("Refresh");
         refreshButton.addActionListener(e -> fetchSnapshot());
         var closeButton = new JButton("Close");
         closeButton.addActionListener(e -> dispose());
-        var buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        var buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        buttonPanel.add(btnPrev);
+        buttonPanel.add(btnNext);
         buttonPanel.add(refreshButton);
         buttonPanel.add(closeButton);
 

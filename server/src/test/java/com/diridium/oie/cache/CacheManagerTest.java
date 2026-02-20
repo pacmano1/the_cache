@@ -99,7 +99,7 @@ class CacheManagerTest {
 
     @Test
     void snapshot_returnsNullForUnknownCache() {
-        assertNull(cacheManager.getSnapshot("unknown-id", 1000, "key", "asc", null, "key", false));
+        assertNull(cacheManager.getSnapshot("unknown-id", 0, 1000, "key", "asc", null, "key", false));
     }
 
     @Test
@@ -107,7 +107,7 @@ class CacheManagerTest {
         var def = createDefinition("snapshot-test");
         cacheManager.registerCache(def);
 
-        var snapshot = cacheManager.getSnapshot(def.getId(), 1000, "key", "asc", null, "key", false);
+        var snapshot = cacheManager.getSnapshot(def.getId(), 0, 1000, "key", "asc", null, "key", false);
         assertNotNull(snapshot);
         assertNotNull(snapshot.getStatistics());
         assertEquals("snapshot-test", snapshot.getStatistics().getName());
@@ -183,7 +183,7 @@ class CacheManagerTest {
         var def = createDefinition("accesscount-fresh");
         cacheManager.registerCache(def);
 
-        var snapshot = cacheManager.getSnapshot(def.getId(), 1000, "key", "asc", null, "key", false);
+        var snapshot = cacheManager.getSnapshot(def.getId(), 0, 1000, "key", "asc", null, "key", false);
         assertNotNull(snapshot);
         // No entries loaded yet → no access counts to verify
         assertTrue(snapshot.getEntries().isEmpty());
@@ -196,7 +196,7 @@ class CacheManagerTest {
         cacheManager.unregisterCache(def.getId());
 
         // After unregister, snapshot is null — access counts are gone
-        assertNull(cacheManager.getSnapshot(def.getId(), 1000, "key", "asc", null, "key", false));
+        assertNull(cacheManager.getSnapshot(def.getId(), 0, 1000, "key", "asc", null, "key", false));
     }
 
     @Test
