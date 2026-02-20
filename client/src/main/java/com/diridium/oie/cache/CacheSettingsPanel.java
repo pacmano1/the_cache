@@ -116,14 +116,18 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         btnRefresh.setEnabled(false);
         btnRefresh.addActionListener(e -> refreshCache());
 
+        var btnReload = new JButton("Reload");
+        btnReload.setToolTipText("Reload cache definitions and statistics");
+        btnReload.addActionListener(e -> doRefresh());
 
-        var buttonPanel = new JPanel(new MigLayout("insets 0 12 0 12", "[][][][]push[][]", ""));
+        var buttonPanel = new JPanel(new MigLayout("insets 0 12 0 12", "[][][][]push[][][]", ""));
         buttonPanel.add(btnNew);
         buttonPanel.add(btnEdit);
         buttonPanel.add(btnDuplicate);
         buttonPanel.add(btnDelete);
         buttonPanel.add(btnShowCache);
         buttonPanel.add(btnRefresh);
+        buttonPanel.add(btnReload);
 
         var topPanel = new JPanel(new MigLayout("insets 0 12 0 12, flowy", "[grow]", "[]4[]"));
         topPanel.add(buttonPanel, "growx");
