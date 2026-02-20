@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -22,6 +23,8 @@ import javax.swing.SwingWorker;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.TableRowSorter;
+
+import com.mirth.connect.client.ui.Frame;
 
 import com.mirth.connect.client.ui.AbstractSettingsPanel;
 import com.mirth.connect.client.ui.PlatformUI;
@@ -108,7 +111,7 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         btnDelete.setEnabled(false);
         btnDelete.addActionListener(e -> deleteDefinition());
 
-        btnShowCache = new JButton("Show Cache");
+        btnShowCache = new JButton("Inspect");
         btnShowCache.setEnabled(false);
         btnShowCache.addActionListener(e -> showCache());
 
@@ -116,7 +119,7 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         btnRefresh.setEnabled(false);
         btnRefresh.addActionListener(e -> refreshCache());
 
-        var btnReload = new JButton("Reload");
+        var btnReload = new JButton(new ImageIcon(Frame.class.getResource("images/refresh.png")));
         btnReload.setToolTipText("Reload cache definitions and statistics");
         btnReload.addActionListener(e -> doRefresh());
 
