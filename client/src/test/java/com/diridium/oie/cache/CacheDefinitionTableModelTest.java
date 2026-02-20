@@ -22,63 +22,73 @@ class CacheDefinitionTableModelTest {
     }
 
     @Test
-    void columnCount_includesLookupsColumn() {
-        assertEquals(6, model.getColumnCount());
-        assertEquals("Memory", model.getColumnName(4));
-        assertEquals("Lookups", model.getColumnName(5));
-        assertEquals(Long.class, model.getColumnClass(5));
+    void columnCount_includesAllColumns() {
+        assertEquals(9, model.getColumnCount());
+        assertEquals("Name", model.getColumnName(0));
+        assertEquals("Enabled", model.getColumnName(1));
+        assertEquals("Max Size", model.getColumnName(2));
+        assertEquals("Eviction (min)", model.getColumnName(3));
+        assertEquals("Size", model.getColumnName(4));
+        assertEquals("Hit Rate", model.getColumnName(5));
+        assertEquals("Evictions", model.getColumnName(6));
+        assertEquals("Memory", model.getColumnName(7));
+        assertEquals("Lookups", model.getColumnName(8));
     }
 
     @Test
-    void lookupsColumn_defaultsToZero() {
+    void statsColumns_defaultToZeroOrDash() {
         model.setDefinitions(List.of(createDefinition("id-1", "cache-a")));
 
-        assertEquals(0L, model.getValueAt(0, 5));
+        assertEquals(0L, model.getValueAt(0, 4));   // Size
+        assertEquals("—", model.getValueAt(0, 5));   // Hit Rate
+        assertEquals(0L, model.getValueAt(0, 6));     // Evictions
+        assertEquals("0 B", model.getValueAt(0, 7));  // Memory
+        assertEquals(0L, model.getValueAt(0, 8));      // Lookups
     }
 
     @Test
-    void setLookupCounts_updatesLookupsColumn() {
-        model.setDefinitions(List.of(createDefinition("id-1", "cache-a")));
-        model.setLookupCounts(Map.of("id-1", 42L));
+    void setData_populatesStatsColumns() {
+        var stats1 = createStats("id-1", 42, 0.95, 3, 2048, 100);
+        var stats2 = createStats("id-2", 10, 0.5, 0, 1048576, 25);
 
-        assertEquals(42L, model.getValueAt(0, 5));
+        model.setData(
+                List.of(createDefinition("id-1", "cache-a"), createDefinition("id-2", "cache-b")),
+                Map.of("id-1", stats1, "id-2", stats2));
+
+        // cache-a
+        assertEquals(42L, model.getValueAt(0, 4));       // Size
+        assertEquals("95.0%", model.getValueAt(0, 5));    // Hit Rate
+        assertEquals(3L, model.getValueAt(0, 6));          // Evictions
+        assertEquals("2.0 KB", model.getValueAt(0, 7));   // Memory
+        assertEquals(100L, model.getValueAt(0, 8));        // Lookups
+
+        // cache-b
+        assertEquals(10L, model.getValueAt(1, 4));
+        assertEquals("50.0%", model.getValueAt(1, 5));
+        assertEquals(0L, model.getValueAt(1, 6));
+        assertEquals("1.0 MB", model.getValueAt(1, 7));
+        assertEquals(25L, model.getValueAt(1, 8));
     }
 
     @Test
-    void setData_setsBothDefinitionsAndCounts() {
-        var defs = List.of(
-                createDefinition("id-1", "cache-a"),
-                createDefinition("id-2", "cache-b"));
-        var counts = Map.of("id-1", 10L, "id-2", 25L);
-        var memory = Map.of("id-1", 2048L, "id-2", 1048576L);
-
-        model.setData(defs, counts, memory);
-
-        assertEquals(2, model.getRowCount());
-        assertEquals(10L, model.getValueAt(0, 5));
-        assertEquals(25L, model.getValueAt(1, 5));
-        assertEquals("2.0 KB", model.getValueAt(0, 4));
-        assertEquals("1.0 MB", model.getValueAt(1, 4));
-    }
-
-    @Test
-    void setData_withNullCounts_defaultsToZero() {
-        model.setData(List.of(createDefinition("id-1", "cache-a")), null, null);
+    void setData_withNullStats_defaultsToZero() {
+        model.setData(List.of(createDefinition("id-1", "cache-a")), null);
 
         assertEquals(1, model.getRowCount());
-        assertEquals(0L, model.getValueAt(0, 5));
-        assertEquals("0 B", model.getValueAt(0, 4));
+        assertEquals(0L, model.getValueAt(0, 4));
+        assertEquals("—", model.getValueAt(0, 5));
+        assertEquals(0L, model.getValueAt(0, 8));
     }
 
     @Test
     void setData_withMissingId_defaultsToZero() {
-        model.setData(
-                List.of(createDefinition("id-1", "cache-a")),
-                Map.of("id-other", 99L),
-                Map.of("id-other", 512L));
+        var stats = createStats("id-other", 5, 0.8, 1, 512, 99);
+        model.setData(List.of(createDefinition("id-1", "cache-a")), Map.of("id-other", stats));
 
-        assertEquals(0L, model.getValueAt(0, 5));
-        assertEquals("0 B", model.getValueAt(0, 4));
+        assertEquals(0L, model.getValueAt(0, 4));
+        assertEquals("—", model.getValueAt(0, 5));
+        assertEquals("0 B", model.getValueAt(0, 7));
+        assertEquals(0L, model.getValueAt(0, 8));
     }
 
     @Test
@@ -111,15 +121,21 @@ class CacheDefinitionTableModelTest {
     }
 
     @Test
-    void setDefinitions_clearsPreviousLookupCounts() {
-        model.setData(
-                List.of(createDefinition("id-1", "cache-a")),
-                Map.of("id-1", 50L),
-                Map.of("id-1", 1024L));
+    void hitRate_nanRendersAsDash() {
+        var stats = createStats("id-1", 0, Double.NaN, 0, 0, 0);
+        model.setData(List.of(createDefinition("id-1", "cache-a")), Map.of("id-1", stats));
 
-        // setDefinitions doesn't touch lookupCounts — existing counts remain
-        model.setDefinitions(List.of(createDefinition("id-1", "cache-a")));
-        assertEquals(50L, model.getValueAt(0, 5));
+        assertEquals("—", model.getValueAt(0, 5));
+    }
+
+    @Test
+    void getDefinitionAt_returnsCorrectDefinition() {
+        var def = createDefinition("id-1", "cache-a");
+        model.setDefinitions(List.of(def));
+
+        assertEquals(def, model.getDefinitionAt(0));
+        assertNull(model.getDefinitionAt(-1));
+        assertNull(model.getDefinitionAt(1));
     }
 
     private CacheDefinition createDefinition(String id, String name) {
@@ -131,5 +147,17 @@ class CacheDefinitionTableModelTest {
         def.setEvictionDurationMinutes(30);
         def.setDriver("org.postgresql.Driver");
         return def;
+    }
+
+    private CacheStatistics createStats(String id, long size, double hitRate,
+                                        long evictions, long memoryBytes, long requestCount) {
+        var stats = new CacheStatistics();
+        stats.setCacheDefinitionId(id);
+        stats.setSize(size);
+        stats.setHitRate(hitRate);
+        stats.setEvictionCount(evictions);
+        stats.setEstimatedMemoryBytes(memoryBytes);
+        stats.setRequestCount(requestCount);
+        return stats;
     }
 }

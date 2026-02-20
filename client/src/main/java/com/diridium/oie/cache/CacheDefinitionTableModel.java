@@ -15,12 +15,17 @@ import javax.swing.table.AbstractTableModel;
  */
 public class CacheDefinitionTableModel extends AbstractTableModel {
 
-    private static final String[] COLUMN_NAMES = {"Name", "Enabled", "Max Size", "Eviction (min)", "Memory", "Lookups"};
-    private static final Class<?>[] COLUMN_CLASSES = {String.class, String.class, Long.class, Long.class, String.class, Long.class};
+    private static final String[] COLUMN_NAMES = {
+            "Name", "Enabled", "Max Size", "Eviction (min)",
+            "Size", "Hit Rate", "Evictions", "Memory", "Lookups"
+    };
+    private static final Class<?>[] COLUMN_CLASSES = {
+            String.class, String.class, Long.class, Long.class,
+            Long.class, String.class, Long.class, String.class, Long.class
+    };
 
     private final List<CacheDefinition> definitions = new ArrayList<>();
-    private final Map<String, Long> lookupCounts = new HashMap<>();
-    private final Map<String, Long> memoryEstimates = new HashMap<>();
+    private final Map<String, CacheStatistics> statsMap = new HashMap<>();
 
     public void setDefinitions(List<CacheDefinition> defs) {
         definitions.clear();
@@ -30,26 +35,14 @@ public class CacheDefinitionTableModel extends AbstractTableModel {
         fireTableDataChanged();
     }
 
-    public void setLookupCounts(Map<String, Long> counts) {
-        lookupCounts.clear();
-        if (counts != null) {
-            lookupCounts.putAll(counts);
-        }
-        fireTableDataChanged();
-    }
-
-    public void setData(List<CacheDefinition> defs, Map<String, Long> counts, Map<String, Long> memory) {
+    public void setData(List<CacheDefinition> defs, Map<String, CacheStatistics> stats) {
         definitions.clear();
         if (defs != null) {
             definitions.addAll(defs);
         }
-        lookupCounts.clear();
-        if (counts != null) {
-            lookupCounts.putAll(counts);
-        }
-        memoryEstimates.clear();
-        if (memory != null) {
-            memoryEstimates.putAll(memory);
+        statsMap.clear();
+        if (stats != null) {
+            statsMap.putAll(stats);
         }
         fireTableDataChanged();
     }
@@ -84,15 +77,24 @@ public class CacheDefinitionTableModel extends AbstractTableModel {
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
         var def = definitions.get(rowIndex);
+        var stats = statsMap.get(def.getId());
         return switch (columnIndex) {
             case 0 -> def.getName();
             case 1 -> def.isEnabled() ? "Yes" : "No";
             case 2 -> def.getMaxSize();
             case 3 -> def.getEvictionDurationMinutes();
-            case 4 -> formatBytes(memoryEstimates.getOrDefault(def.getId(), 0L));
-            case 5 -> lookupCounts.getOrDefault(def.getId(), 0L);
+            case 4 -> stats != null ? stats.getSize() : 0L;
+            case 5 -> stats != null ? formatPercent(stats.getHitRate()) : "—";
+            case 6 -> stats != null ? stats.getEvictionCount() : 0L;
+            case 7 -> formatBytes(stats != null ? stats.getEstimatedMemoryBytes() : 0L);
+            case 8 -> stats != null ? stats.getRequestCount() : 0L;
             default -> null;
         };
+    }
+
+    private static String formatPercent(double rate) {
+        if (Double.isNaN(rate)) return "—";
+        return String.format("%.1f%%", rate * 100);
     }
 
     private static String formatBytes(long bytes) {
