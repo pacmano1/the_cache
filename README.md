@@ -2,7 +2,9 @@
 
 A plugin for [Open Integration Engine](https://github.com/nextgenhealthcare/connect) that provides fast in-memory key-value lookups against external databases using Google Guava's LoadingCache and HikariCP connection pooling.
 
-<img src="images/cache-inspector.png" width="600" alt="Cache Inspector showing statistics and cached entries">
+<p align="center">
+  <img src="images/cache-inspector.png" width="700" alt="OIE Administrator with Cache Inspector">
+</p>
 
 ## Features
 
