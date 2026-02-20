@@ -8,10 +8,12 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.regex.Pattern;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -274,25 +276,68 @@ public final class CacheManager {
     }
 
     /**
-     * Get a point-in-time snapshot of a cache: statistics plus all current entries.
+     * Get a point-in-time snapshot of a cache with server-side filtering, sorting, and limiting.
      */
-    public CacheSnapshot getSnapshot(String definitionId) {
+    public CacheSnapshot getSnapshot(String definitionId, int offset, int limit, String sortBy,
+                                     String sortDir, String filter, String filterScope,
+                                     boolean filterRegex) {
         var reg = registrations.get(definitionId);
         if (reg == null) {
             return null;
         }
 
         var stats = buildStatistics(definitionId, reg);
-        var entries = new ArrayList<CacheEntry>();
+        var allEntries = new ArrayList<CacheEntry>();
 
         for (var entry : reg.cache.asMap().entrySet()) {
             var loadedAt = reg.loadTimestamps.getOrDefault(entry.getKey(), 0L);
             var adder = reg.accessCounts.get(entry.getKey());
             var accessCount = adder != null ? adder.sum() : 0L;
-            entries.add(new CacheEntry(entry.getKey(), entry.getValue(), loadedAt, accessCount));
+            allEntries.add(new CacheEntry(entry.getKey(), entry.getValue(), loadedAt, accessCount));
         }
 
-        return new CacheSnapshot(stats, entries);
+        long totalEntries = allEntries.size();
+
+        // Filter
+        List<CacheEntry> filtered;
+        if (filter != null && !filter.isBlank()) {
+            var pattern = filterRegex
+                    ? Pattern.compile(filter, Pattern.CASE_INSENSITIVE)
+                    : Pattern.compile(Pattern.quote(filter), Pattern.CASE_INSENSITIVE);
+            filtered = allEntries.stream().filter(e -> {
+                var scope = filterScope != null ? filterScope : "key";
+                return switch (scope) {
+                    case "value" -> e.getValue() != null && pattern.matcher(e.getValue()).find();
+                    case "both" -> pattern.matcher(e.getKey()).find()
+                            || (e.getValue() != null && pattern.matcher(e.getValue()).find());
+                    default -> pattern.matcher(e.getKey()).find();
+                };
+            }).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        } else {
+            filtered = allEntries;
+        }
+
+        long matchedEntries = filtered.size();
+
+        // Sort
+        Comparator<CacheEntry> comparator = switch (sortBy != null ? sortBy : "key") {
+            case "value" -> Comparator.comparing(
+                    e -> e.getValue() != null ? e.getValue() : "", String.CASE_INSENSITIVE_ORDER);
+            case "loadedAt" -> Comparator.comparingLong(CacheEntry::getLoadedAtMillis);
+            case "accessCount" -> Comparator.comparingLong(CacheEntry::getAccessCount);
+            default -> Comparator.comparing(CacheEntry::getKey, String.CASE_INSENSITIVE_ORDER);
+        };
+        if ("desc".equalsIgnoreCase(sortDir)) {
+            comparator = comparator.reversed();
+        }
+        filtered.sort(comparator);
+
+        // Offset + Limit
+        int fromIndex = Math.max(0, Math.min(offset, filtered.size()));
+        int toIndex = limit > 0 ? Math.min(fromIndex + limit, filtered.size()) : filtered.size();
+        var page = filtered.subList(fromIndex, toIndex);
+
+        return new CacheSnapshot(stats, page, totalEntries, matchedEntries);
     }
 
     /**

@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -22,6 +23,8 @@ import javax.swing.SwingWorker;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.TableRowSorter;
+
+import com.mirth.connect.client.ui.Frame;
 
 import com.mirth.connect.client.ui.AbstractSettingsPanel;
 import com.mirth.connect.client.ui.PlatformUI;
@@ -108,7 +111,7 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         btnDelete.setEnabled(false);
         btnDelete.addActionListener(e -> deleteDefinition());
 
-        btnShowCache = new JButton("Show Cache");
+        btnShowCache = new JButton("Inspect");
         btnShowCache.setEnabled(false);
         btnShowCache.addActionListener(e -> showCache());
 
@@ -116,14 +119,19 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         btnRefresh.setEnabled(false);
         btnRefresh.addActionListener(e -> refreshCache());
 
+        var refreshIcon = Frame.class.getResource("images/refresh.png");
+        var btnReload = refreshIcon != null ? new JButton(new ImageIcon(refreshIcon)) : new JButton("\u21BB");
+        btnReload.setToolTipText("Reload cache definitions and statistics");
+        btnReload.addActionListener(e -> doRefresh());
 
-        var buttonPanel = new JPanel(new MigLayout("insets 0 12 0 12", "[][][][]push[][]", ""));
+        var buttonPanel = new JPanel(new MigLayout("insets 0 12 0 12", "[][][][]push[][][]", ""));
         buttonPanel.add(btnNew);
         buttonPanel.add(btnEdit);
         buttonPanel.add(btnDuplicate);
         buttonPanel.add(btnDelete);
         buttonPanel.add(btnShowCache);
         buttonPanel.add(btnRefresh);
+        buttonPanel.add(btnReload);
 
         var topPanel = new JPanel(new MigLayout("insets 0 12 0 12, flowy", "[grow]", "[]4[]"));
         topPanel.add(buttonPanel, "growx");
@@ -137,18 +145,15 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
     public void doRefresh() {
         new SwingWorker<Void, Void>() {
             private List<CacheDefinition> defs;
-            private Map<String, Long> counts;
-            private Map<String, Long> memory;
+            private Map<String, CacheStatistics> statsMap;
 
             @Override
             protected Void doInBackground() throws Exception {
                 defs = getServlet().getCacheDefinitions();
-                counts = new HashMap<>();
-                memory = new HashMap<>();
+                statsMap = new HashMap<>();
                 try {
                     for (var stats : getServlet().getAllCacheStatistics()) {
-                        counts.put(stats.getCacheDefinitionId(), stats.getRequestCount());
-                        memory.put(stats.getCacheDefinitionId(), stats.getEstimatedMemoryBytes());
+                        statsMap.put(stats.getCacheDefinitionId(), stats);
                     }
                 } catch (Exception e) {
                     log.debug("Could not fetch cache statistics", e);
@@ -160,10 +165,10 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
             protected void done() {
                 try {
                     get();
-                    tableModel.setData(defs, counts, memory);
+                    tableModel.setData(defs, statsMap);
                 } catch (Exception e) {
                     log.error("Failed to load cache definitions", e);
-                    tableModel.setData(Collections.emptyList(), Collections.emptyMap(), Collections.emptyMap());
+                    tableModel.setData(Collections.emptyList(), Collections.emptyMap());
                 }
                 updateButtonStates();
             }
@@ -303,7 +308,8 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         new SwingWorker<CacheSnapshot, Void>() {
             @Override
             protected CacheSnapshot doInBackground() throws Exception {
-                return getServlet().getCacheSnapshot(selected.getId());
+                return getServlet().getCacheSnapshot(selected.getId(),
+                        0, 1000, "key", "asc", null, "key", false);
             }
 
             @Override
@@ -312,13 +318,9 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
                     var snapshot = get();
                     var dialog = new CacheInspectorDialog(
                             PlatformUI.MIRTH_FRAME, selected.getName(), snapshot,
-                            () -> {
-                                try {
-                                    return getServlet().getCacheSnapshot(selected.getId());
-                                } catch (Exception ex) {
-                                    throw new RuntimeException(ex);
-                                }
-                            });
+                            (offset, limit, sortBy, sortDir, filter, filterScope, filterRegex) ->
+                                    getServlet().getCacheSnapshot(selected.getId(),
+                                            offset, limit, sortBy, sortDir, filter, filterScope, filterRegex));
                     dialog.setVisible(true);
                 } catch (Exception e) {
                     PlatformUI.MIRTH_FRAME.alertThrowable(

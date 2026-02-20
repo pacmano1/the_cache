@@ -16,10 +16,12 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 @XStreamAlias("cacheSnapshot")
 public class CacheSnapshot implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     private CacheStatistics statistics;
     private List<CacheEntry> entries;
+    private long totalEntries;
+    private long matchedEntries;
 
     public CacheSnapshot() {
     }
@@ -27,6 +29,14 @@ public class CacheSnapshot implements Serializable {
     public CacheSnapshot(CacheStatistics statistics, List<CacheEntry> entries) {
         this.statistics = statistics;
         this.entries = entries != null ? new ArrayList<>(entries) : new ArrayList<>();
+    }
+
+    public CacheSnapshot(CacheStatistics statistics, List<CacheEntry> entries,
+                         long totalEntries, long matchedEntries) {
+        this.statistics = statistics;
+        this.entries = entries != null ? new ArrayList<>(entries) : new ArrayList<>();
+        this.totalEntries = totalEntries;
+        this.matchedEntries = matchedEntries;
     }
 
     public CacheStatistics getStatistics() {
@@ -43,5 +53,21 @@ public class CacheSnapshot implements Serializable {
 
     public void setEntries(List<CacheEntry> entries) {
         this.entries = entries != null ? new ArrayList<>(entries) : new ArrayList<>();
+    }
+
+    public long getTotalEntries() {
+        return totalEntries;
+    }
+
+    public void setTotalEntries(long totalEntries) {
+        this.totalEntries = totalEntries;
+    }
+
+    public long getMatchedEntries() {
+        return matchedEntries;
+    }
+
+    public void setMatchedEntries(long matchedEntries) {
+        this.matchedEntries = matchedEntries;
     }
 }
