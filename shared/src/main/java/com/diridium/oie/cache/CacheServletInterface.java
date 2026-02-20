@@ -145,5 +145,18 @@ public interface CacheServletInterface extends BaseServletInterface {
             permission = Permissions.SERVER_SETTINGS_VIEW, type = ExecuteType.ASYNC, auditable = false)
     CacheSnapshot getCacheSnapshot(
             @Param("id") @Parameter(description = "Cache definition ID", required = true)
-            @PathParam("id") String id) throws ClientException;
+            @PathParam("id") String id,
+            @Param("limit") @Parameter(description = "Max entries to return (default 1000)")
+            @QueryParam("limit") @javax.ws.rs.DefaultValue("1000") int limit,
+            @Param("sortBy") @Parameter(description = "Sort field: key, value, loadedAt, accessCount")
+            @QueryParam("sortBy") @javax.ws.rs.DefaultValue("key") String sortBy,
+            @Param("sortDir") @Parameter(description = "Sort direction: asc or desc")
+            @QueryParam("sortDir") @javax.ws.rs.DefaultValue("asc") String sortDir,
+            @Param("filter") @Parameter(description = "Filter text")
+            @QueryParam("filter") String filter,
+            @Param("filterScope") @Parameter(description = "Filter scope: key, value, or both")
+            @QueryParam("filterScope") @javax.ws.rs.DefaultValue("key") String filterScope,
+            @Param("filterRegex") @Parameter(description = "Treat filter as regex")
+            @QueryParam("filterRegex") @javax.ws.rs.DefaultValue("false") boolean filterRegex
+    ) throws ClientException;
 }

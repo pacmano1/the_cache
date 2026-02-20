@@ -303,7 +303,8 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
         new SwingWorker<CacheSnapshot, Void>() {
             @Override
             protected CacheSnapshot doInBackground() throws Exception {
-                return getServlet().getCacheSnapshot(selected.getId());
+                return getServlet().getCacheSnapshot(selected.getId(),
+                        1000, "key", "asc", null, "key", false);
             }
 
             @Override
@@ -312,13 +313,9 @@ public class CacheSettingsPanel extends AbstractSettingsPanel {
                     var snapshot = get();
                     var dialog = new CacheInspectorDialog(
                             PlatformUI.MIRTH_FRAME, selected.getName(), snapshot,
-                            () -> {
-                                try {
-                                    return getServlet().getCacheSnapshot(selected.getId());
-                                } catch (Exception ex) {
-                                    throw new RuntimeException(ex);
-                                }
-                            });
+                            (limit, sortBy, sortDir, filter, filterScope, filterRegex) ->
+                                    getServlet().getCacheSnapshot(selected.getId(),
+                                            limit, sortBy, sortDir, filter, filterScope, filterRegex));
                     dialog.setVisible(true);
                 } catch (Exception e) {
                     PlatformUI.MIRTH_FRAME.alertThrowable(

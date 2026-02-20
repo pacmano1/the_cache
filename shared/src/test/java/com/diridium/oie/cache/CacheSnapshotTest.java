@@ -41,6 +41,30 @@ class CacheSnapshotTest {
 
         assertSame(stats, snapshot.getStatistics());
         assertEquals(1, snapshot.getEntries().size());
+        assertEquals(0, snapshot.getTotalEntries());
+        assertEquals(0, snapshot.getMatchedEntries());
+    }
+
+    @Test
+    void fullConstructor_setsCounts() {
+        var stats = new CacheStatistics();
+        var entries = List.of(new CacheEntry("k", "v", 500L, 0L));
+
+        var snapshot = new CacheSnapshot(stats, entries, 5000, 200);
+
+        assertEquals(1, snapshot.getEntries().size());
+        assertEquals(5000, snapshot.getTotalEntries());
+        assertEquals(200, snapshot.getMatchedEntries());
+    }
+
+    @Test
+    void totalAndMatchedEntries_settersRoundTrip() {
+        var snapshot = new CacheSnapshot();
+        snapshot.setTotalEntries(42000);
+        snapshot.setMatchedEntries(1500);
+
+        assertEquals(42000, snapshot.getTotalEntries());
+        assertEquals(1500, snapshot.getMatchedEntries());
     }
 
     @Test
