@@ -35,6 +35,24 @@ var state = $g('zip2').lookup(zip);
 
 The first call for a given key queries the database. Subsequent calls return from memory.
 
+## Building from Source
+
+```bash
+mvn clean package
+```
+
+The installable plugin ZIP is produced at:
+
+```
+package/target/oie-cache-manager-<version>.zip
+```
+
+To build with JAR signing enabled (requires a PKCS#11 token):
+
+```bash
+mvn clean package -Psigning
+```
+
 ## Documentation
 
 See the [Wiki](https://github.com/pacmano1/the_cache/wiki) for full documentation:
