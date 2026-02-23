@@ -24,7 +24,7 @@ A plugin for [Open Integration Engine](https://github.com/nextgenhealthcare/conn
 
 ## Installation
 
-1. Download the latest `oie-cache-manager-<version>.zip` from the [Releases](https://github.com/pacmano1/the_cache/releases) page
+1. Download the latest `oie-cache-manager-<version>.zip` from the [Releases](https://github.com/diridium-com/the_cache/releases) page
 2. In OIE Administrator, go to **Settings > Extensions** and click **Install Extension**
 3. Select the ZIP file and restart the server
 4. Verify the **Cache Manager** tab appears under **Settings**
@@ -59,15 +59,15 @@ mvn clean package -Psigning
 
 ## Documentation
 
-See the [Wiki](https://github.com/pacmano1/the_cache/wiki) for full documentation:
+See the [Wiki](https://github.com/diridium-com/the_cache/wiki) for full documentation:
 
-- [Getting Started](https://github.com/pacmano1/the_cache/wiki/Getting-Started)
-- [Managing Caches](https://github.com/pacmano1/the_cache/wiki/Managing-Caches)
-- [Cache Inspector](https://github.com/pacmano1/the_cache/wiki/Cache-Inspector)
-- [Using Caches in Channels](https://github.com/pacmano1/the_cache/wiki/Using-Caches-in-Channels)
-- [REST API](https://github.com/pacmano1/the_cache/wiki/REST-API)
-- [Troubleshooting](https://github.com/pacmano1/the_cache/wiki/Troubleshooting)
-- [Security Considerations](https://github.com/pacmano1/the_cache/wiki/Security-Considerations)
+- [Getting Started](https://github.com/diridium-com/the_cache/wiki/Getting-Started)
+- [Managing Caches](https://github.com/diridium-com/the_cache/wiki/Managing-Caches)
+- [Cache Inspector](https://github.com/diridium-com/the_cache/wiki/Cache-Inspector)
+- [Using Caches in Channels](https://github.com/diridium-com/the_cache/wiki/Using-Caches-in-Channels)
+- [REST API](https://github.com/diridium-com/the_cache/wiki/REST-API)
+- [Troubleshooting](https://github.com/diridium-com/the_cache/wiki/Troubleshooting)
+- [Security Considerations](https://github.com/diridium-com/the_cache/wiki/Security-Considerations)
 
 ## License
 
